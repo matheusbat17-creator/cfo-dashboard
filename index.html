@@ -1,0 +1,751 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>CFO Pessoal - Dashboard</title>
+<style>
+  :root {
+    --surface-0: #f4f4f5;
+    --surface-1: #ffffff;
+    --surface-2: #fafafa;
+    --text-primary: #18181b;
+    --text-secondary: #52525b;
+    --text-muted: #a1a1aa;
+    --border: #e4e4e7;
+    --border-strong: #d4d4d8;
+    --border-accent: #1D9E75;
+    --bg-accent: #e6f6f0;
+    --text-accent: #0f7a56;
+    --bg-success: #e6f6f0;
+    --text-success: #0f7a56;
+    --bg-warning: #fdf3e3;
+    --text-warning: #a3660f;
+    --radius: 10px;
+    --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --surface-0: #121214;
+      --surface-1: #1c1c1f;
+      --surface-2: #232326;
+      --text-primary: #f4f4f5;
+      --text-secondary: #b0b0b5;
+      --text-muted: #7a7a80;
+      --border: #333338;
+      --border-strong: #45454a;
+      --border-accent: #1D9E75;
+      --bg-accent: #123528;
+      --text-accent: #3fd6a0;
+      --bg-success: #123528;
+      --text-success: #3fd6a0;
+      --bg-warning: #3a2c10;
+      --text-warning: #e0a940;
+    }
+  }
+  :root[data-theme="dark"] {
+    --surface-0: #121214;
+    --surface-1: #1c1c1f;
+    --surface-2: #232326;
+    --text-primary: #f4f4f5;
+    --text-secondary: #b0b0b5;
+    --text-muted: #7a7a80;
+    --border: #333338;
+    --border-strong: #45454a;
+    --border-accent: #1D9E75;
+    --bg-accent: #123528;
+    --text-accent: #3fd6a0;
+    --bg-success: #123528;
+    --text-success: #3fd6a0;
+    --bg-warning: #3a2c10;
+    --text-warning: #e0a940;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: var(--surface-0);
+    font-family: var(--font-sans);
+  }
+  body {
+    padding: 16px;
+    padding-top: calc(16px + env(safe-area-inset-top, 0px));
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+  select, input, button {
+    font-family: var(--font-sans);
+    background: var(--surface-1);
+    color: var(--text-primary);
+    border: 0.5px solid var(--border);
+    border-radius: 6px;
+    padding: 6px 8px;
+    font-size: 13px;
+  }
+  #root { max-width: 760px; margin: 0 auto; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+<script type="text/babel" data-type="module">
+const { useState, useMemo } = React;
+
+const SALARY = 3140;
+const TERREIRO = 127;
+const BUFFER = 1000;
+
+const CATEGORIES = {
+  essencial: { label: "Essencial", color: "#1D9E75" },
+  compromisso: { label: "Compromisso", color: "#378ADD" },
+  cortavel: { label: "Cortável", color: "#D85A30" },
+  delivery_restaurante: { label: "Delivery/Restaurante", color: "#E24B4A" },
+  compras_online: { label: "Compras online", color: "#D4537E" },
+  uber: { label: "Uber", color: "#534AB7" },
+  combustivel: { label: "Combustível", color: "#888780" },
+  cuidados_pessoais: { label: "Cuidados pessoais", color: "#BA7517" },
+  vestuario: { label: "Vestuário", color: "#639922" },
+  viagem: { label: "Viagem/Carnaval", color: "#185FA5" },
+  outros: { label: "Outros/Diversos", color: "#5F5E5A" },
+};
+
+const CYCLES = [
+  { id: "mar26", label: "Mar/26", period: "27/01 → 23/02", venc: "01/03/2026" },
+  { id: "abr26", label: "Abr/26", period: "24/02 → 25/03", venc: "01/04/2026" },
+  { id: "mai26", label: "Mai/26", period: "26/03 → 24/04", venc: "01/05/2026" },
+  { id: "jun26", label: "Jun/26", period: "25/04 → 25/05", venc: "01/06/2026" },
+  { id: "jul26", label: "Jul/26", period: "26/05 → 24/06", venc: "01/07/2026" },
+  { id: "ago26", label: "Ago/26", period: "25/06 → 27/07", venc: "01/08/2026" },
+  { id: "set26", label: "Set/26", period: "28/07 → 25/08", venc: "01/09/2026" },
+];
+
+const initialExpenses = [
+  // === MAR/26 (fatura venc 01/03) ===
+  { cycle: "mar26", date: "14/11", desc: "Auto Peças Furlan", value: 945.25, cat: "compromisso", parcela: "04/04" },
+  { cycle: "mar26", date: "03/02", desc: "686 Skyfit Academia", value: 30.00, cat: "essencial" },
+  { cycle: "mar26", date: "13/02", desc: "Taça Macha Explosão", value: 25.00, cat: "outros" },
+  { cycle: "mar26", date: "14/02", desc: "Fabiana de Oliveira (lanchonete)", value: 72.80, cat: "delivery_restaurante" },
+  { cycle: "mar26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "04/12" },
+  { cycle: "mar26", date: "02/12", desc: "FM2S Treinamento", value: 49.99, cat: "compromisso", parcela: "03/04" },
+  { cycle: "mar26", date: "16/01", desc: "MercadoLivre parcela", value: 24.30, cat: "compromisso", parcela: "02/04" },
+  { cycle: "mar26", date: "27/01", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "mar26", date: "29/01", desc: "MercadoLivre avulsa", value: 28.90, cat: "compras_online" },
+  { cycle: "mar26", date: "01/02", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "mar26", date: "05/02", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "mar26", date: "10/02", desc: "MercadoLivre avulsa", value: 46.90, cat: "compras_online" },
+  { cycle: "mar26", date: "11/02", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "mar26", date: "12/02", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "mar26", date: "13/02", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "mar26", date: "17/02", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
+  { cycle: "mar26", date: "20/02", desc: "HBO Max", value: 18.90, cat: "cortavel" },
+
+  // === ABR/26 (fatura venc 01/04) ===
+  { cycle: "abr26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "01/03" },
+  { cycle: "abr26", date: "14/03", desc: "Me Linda Cosmetic", value: 44.55, cat: "compromisso", parcela: "01/02" },
+  { cycle: "abr26", date: "23/02", desc: "SCP Essencial Fev", value: 11.44, cat: "essencial" },
+  { cycle: "abr26", date: "24/02", desc: "Unidade Skyfit SA", value: 139.90, cat: "essencial" },
+  { cycle: "abr26", date: "23/03", desc: "SCP Essencial Mar", value: 11.44, cat: "essencial" },
+  { cycle: "abr26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "05/12" },
+  { cycle: "abr26", date: "02/12", desc: "FM2S Treinamento", value: 49.99, cat: "compromisso", parcela: "04/04" },
+  { cycle: "abr26", date: "16/01", desc: "MercadoLivre parcela", value: 24.28, cat: "compromisso", parcela: "03/04" },
+  { cycle: "abr26", date: "24/02", desc: "Shopee CasaSalvador", value: 63.63, cat: "compromisso", parcela: "01/02" },
+  { cycle: "abr26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "01/03" },
+  { cycle: "abr26", date: "21/03", desc: "Nuv Brunogladarto", value: 20.95, cat: "compromisso", parcela: "01/02" },
+  { cycle: "abr26", date: "23/02", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "abr26", date: "24/02", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "abr26", date: "28/02", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "abr26", date: "01/03", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "abr26", date: "05/03", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "abr26", date: "11/03", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "abr26", date: "12/03", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "abr26", date: "13/03", desc: "Uber", value: 7.74, cat: "uber" },
+  { cycle: "abr26", date: "13/03", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "abr26", date: "14/03", desc: "MP Unique Cafés", value: 19.90, cat: "outros" },
+  { cycle: "abr26", date: "17/03", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
+  { cycle: "abr26", date: "20/03", desc: "HBO Max", value: 18.90, cat: "cortavel" },
+  { cycle: "abr26", date: "23/03", desc: "Unidade Skyfit SA", value: 139.90, cat: "outros" },
+
+  // === MAI/26 (fatura venc 01/05) ===
+  { cycle: "mai26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "02/03" },
+  { cycle: "mai26", date: "14/03", desc: "Me Linda Cosmetic", value: 44.54, cat: "compromisso", parcela: "02/02" },
+  { cycle: "mai26", date: "25/03", desc: "Autoposto Jardim", value: 30.00, cat: "combustivel" },
+  { cycle: "mai26", date: "25/03", desc: "Max Jd São Marcos", value: 99.79, cat: "outros" },
+  { cycle: "mai26", date: "29/03", desc: "Bar São Jorge", value: 30.00, cat: "delivery_restaurante" },
+  { cycle: "mai26", date: "16/04", desc: "Posto Monte Carlo", value: 100.00, cat: "combustivel" },
+  { cycle: "mai26", date: "22/04", desc: "SCP Essencial Abr", value: 11.44, cat: "essencial" },
+  { cycle: "mai26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "06/12" },
+  { cycle: "mai26", date: "16/01", desc: "MercadoLivre parcela", value: 24.28, cat: "compromisso", parcela: "04/04" },
+  { cycle: "mai26", date: "24/02", desc: "Shopee CasaSalvador", value: 63.63, cat: "compromisso", parcela: "02/02" },
+  { cycle: "mai26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "02/03" },
+  { cycle: "mai26", date: "21/03", desc: "Nuv Brunogladarto", value: 20.95, cat: "compromisso", parcela: "02/02" },
+  { cycle: "mai26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "01/03" },
+  { cycle: "mai26", date: "24/03", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "mai26", date: "25/03", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "mai26", date: "25/03", desc: "Amazon BR", value: 50.58, cat: "compras_online" },
+  { cycle: "mai26", date: "28/03", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "mai26", date: "01/04", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "mai26", date: "04/04", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "mai26", date: "05/04", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "mai26", date: "07/04", desc: "Shopee CasaCasaDecor", value: 23.99, cat: "compras_online" },
+  { cycle: "mai26", date: "11/04", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "mai26", date: "12/04", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "mai26", date: "13/04", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "mai26", date: "15/04", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "mai26", date: "17/04", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
+  { cycle: "mai26", date: "20/04", desc: "HBO Max", value: 18.90, cat: "cortavel" },
+  { cycle: "mai26", date: "21/04", desc: "MercadoLivre avulsa", value: 46.08, cat: "compras_online" },
+
+  // === JUN/26 (fatura venc 01/06) ===
+  { cycle: "jun26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "03/03" },
+  { cycle: "jun26", date: "03/05", desc: "Ana Julia Rodrigues (a confirmar)", value: 290.00, cat: "outros" },
+  { cycle: "jun26", date: "08/05", desc: "Lojas Renner", value: 99.90, cat: "vestuario" },
+  { cycle: "jun26", date: "08/05", desc: "Bourstep Roupas", value: 89.00, cat: "vestuario" },
+  { cycle: "jun26", date: "21/05", desc: "SCP Essencial Mai", value: 11.44, cat: "essencial" },
+  { cycle: "jun26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "07/12" },
+  { cycle: "jun26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "03/03" },
+  { cycle: "jun26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "02/03" },
+  { cycle: "jun26", date: "07/05", desc: "MercadoLivre parcela", value: 36.72, cat: "compromisso", parcela: "01/04" },
+  { cycle: "jun26", date: "23/04", desc: "Unidade Skyfit SA", value: 139.90, cat: "essencial" },
+  { cycle: "jun26", date: "24/04", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "jun26", date: "24/04", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "jun26", date: "27/04", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "jun26", date: "01/05", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "jun26", date: "04/05", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "jun26", date: "05/05", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "jun26", date: "11/05", desc: "Uber", value: 13.33, cat: "uber" },
+  { cycle: "jun26", date: "11/05", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "jun26", date: "12/05", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "jun26", date: "13/05", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "jun26", date: "15/05", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "jun26", date: "17/05", desc: "MAPFRE Seguro", value: 236.61, cat: "essencial" },
+  { cycle: "jun26", date: "20/05", desc: "HBO Max", value: 18.90, cat: "cortavel" },
+
+  // === JUL/26 (fatura venc 01/07) - viagem 03-07/06 cota 1/4 ===
+  { cycle: "jul26", date: "03/06", desc: "Paygo (viagem 1/4)", value: 12.50, cat: "viagem" },
+  { cycle: "jul26", date: "03/06", desc: "Padaria Pão Me Quer (viagem 1/4)", value: 24.25, cat: "viagem" },
+  { cycle: "jul26", date: "04/06", desc: "Decio Beira Rio (viagem 1/4)", value: 29.83, cat: "viagem" },
+  { cycle: "jul26", date: "04/06", desc: "Posto Presidente (viagem 1/4)", value: 30.26, cat: "viagem" },
+  { cycle: "jul26", date: "05/06", desc: "Veredas (viagem 1/4)", value: 22.11, cat: "viagem" },
+  { cycle: "jul26", date: "05/06", desc: "Lucas de Abreu (viagem 1/4)", value: 20.08, cat: "viagem" },
+  { cycle: "jul26", date: "06/06", desc: "Beco da Lua (viagem 1/4)", value: 33.25, cat: "viagem" },
+  { cycle: "jul26", date: "06/06", desc: "Confraria do Boxexa (viagem 1/4)", value: 3.75, cat: "viagem" },
+  { cycle: "jul26", date: "06/06", desc: "Zig Cachoeira do Abade (viagem 1/4)", value: 3.06, cat: "viagem" },
+  { cycle: "jul26", date: "07/06", desc: "Posto Ipê (viagem 1/4)", value: 36.04, cat: "viagem" },
+  { cycle: "jul26", date: "07/06", desc: "Decio Centralina (viagem 1/4)", value: 26.00, cat: "viagem" },
+  { cycle: "jul26", date: "07/06", desc: "MP Souza66Café (viagem 1/4)", value: 11.50, cat: "viagem" },
+  { cycle: "jul26", date: "08/06", desc: "Estoril Jose Munia", value: 86.00, cat: "delivery_restaurante" },
+  { cycle: "jul26", date: "22/06", desc: "SCP Essencial Jun", value: 11.44, cat: "essencial" },
+  { cycle: "jul26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "08/12" },
+  { cycle: "jul26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "03/03" },
+  { cycle: "jul26", date: "07/05", desc: "MercadoLivre parcela", value: 36.72, cat: "compromisso", parcela: "02/04" },
+  { cycle: "jul26", date: "28/05", desc: "Amazon Retail BR", value: 35.89, cat: "compromisso", parcela: "01/02" },
+  { cycle: "jul26", date: "03/06", desc: "PIX Auto Posto VIP", value: 115.12, cat: "combustivel" },
+  { cycle: "jul26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 75.02, cat: "compromisso", parcela: "01/06" },
+  { cycle: "jul26", date: "24/05", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "jul26", date: "24/05", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "jul26", date: "27/05", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "jul26", date: "01/06", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "jul26", date: "04/06", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "jul26", date: "05/06", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "jul26", date: "11/06", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "jul26", date: "12/06", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "jul26", date: "13/06", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "jul26", date: "15/06", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "jul26", date: "19/06", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
+  { cycle: "jul26", date: "21/06", desc: "HBO Max", value: 29.90, cat: "cortavel" },
+
+  // === AGO/26 (fatura venc 01/08) ===
+  { cycle: "ago26", date: "26/06", desc: "iFood OWCAF", value: 61.19, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "21/07", desc: "SCP Essencial Jul", value: 11.44, cat: "essencial" },
+  { cycle: "ago26", date: "21/07", desc: "Pit Stop Espetaria", value: 70.00, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "22/07", desc: "Avenida Park Restaura", value: 8.00, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "23/07", desc: "Espetaria Ferreira Silva", value: 45.00, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "25/07", desc: "Hoje Pode Doceria", value: 56.00, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "27/06", desc: "MP Loja81", value: 70.00, cat: "compromisso", parcela: "01/02" },
+  { cycle: "ago26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "09/12" },
+  { cycle: "ago26", date: "07/05", desc: "MercadoLivre parcela", value: 36.70, cat: "compromisso", parcela: "03/04" },
+  { cycle: "ago26", date: "28/05", desc: "Amazon Retail BR", value: 35.89, cat: "compromisso", parcela: "02/02" },
+  { cycle: "ago26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 75.02, cat: "compromisso", parcela: "02/06" },
+  { cycle: "ago26", date: "23/06", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "ago26", date: "24/06", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "ago26", date: "27/06", desc: "PG VM Parras", value: 76.06, cat: "compras_online" },
+  { cycle: "ago26", date: "28/06", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "ago26", date: "01/07", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "ago26", date: "04/07", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "05/07", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "ago26", date: "11/07", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "ago26", date: "12/07", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "ago26", date: "13/07", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "ago26", date: "15/07", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "ago26", date: "17/07", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
+  { cycle: "ago26", date: "18/07", desc: "MercadoLivre avulsa", value: 45.50, cat: "compras_online" },
+  { cycle: "ago26", date: "18/07", desc: "Uber", value: 17.04, cat: "uber" },
+  { cycle: "ago26", date: "18/07", desc: "Japa Food Rio Preto", value: 104.04, cat: "delivery_restaurante" },
+  { cycle: "ago26", date: "21/07", desc: "HBO Max", value: 29.90, cat: "cortavel" },
+  { cycle: "ago26", date: "24/07", desc: "Uber", value: 10.64, cat: "uber" },
+  { cycle: "ago26", date: "25/07", desc: "Uber", value: 11.62, cat: "uber" },
+  { cycle: "ago26", date: "25/07", desc: "Uber", value: 7.91, cat: "uber" },
+
+  // === SET/26 (fatura venc 01/09) ===
+  { cycle: "set26", date: "27/06", desc: "MP Loja81", value: 70.00, cat: "compromisso", parcela: "02/02" },
+  { cycle: "set26", date: "29/07", desc: "Lojas Renner FL 403 (presente vó, cota 1/2)", value: 29.95, cat: "vestuario" },
+  { cycle: "set26", date: "29/07", desc: "Casa Religiosa", value: 18.00, cat: "outros" },
+  { cycle: "set26", date: "14/08", desc: "Fabiana de Oliveira (lanchonete)", value: 75.80, cat: "delivery_restaurante" },
+  { cycle: "set26", date: "21/08", desc: "SCP Essencial Ago", value: 11.44, cat: "essencial" },
+  { cycle: "set26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "10/12" },
+  { cycle: "set26", date: "07/05", desc: "MercadoLivre parcela", value: 36.70, cat: "compromisso", parcela: "04/04" },
+  { cycle: "set26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "03/06" },
+  { cycle: "set26", date: "28/07", desc: "CentralSambaP", value: 48.79, cat: "compromisso", parcela: "01/03" },
+  { cycle: "set26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.35, cat: "viagem", parcela: "01/06" },
+  { cycle: "set26", date: "26/07", desc: "MercadoLivre DeMamadeiras", value: 73.90, cat: "outros" },
+  { cycle: "set26", date: "28/07", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "set26", date: "29/07", desc: "Ingresso.com", value: 61.20, cat: "outros" },
+  { cycle: "set26", date: "30/07", desc: "Anthropic Claude Sub", value: 118.07, cat: "cortavel" },
+  { cycle: "set26", date: "30/07", desc: "IOF despesa exterior", value: 4.13, cat: "outros" },
+  { cycle: "set26", date: "01/08", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "set26", date: "04/08", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "set26", date: "05/08", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "set26", date: "11/08", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "set26", date: "12/08", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "set26", date: "13/08", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "set26", date: "15/08", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "set26", date: "17/08", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
+  { cycle: "set26", date: "18/08", desc: "API Payment CFE63", value: 10.00, cat: "outros" },
+  { cycle: "set26", date: "21/08", desc: "HBO Max", value: 29.90, cat: "cortavel" },
+  { cycle: "set26", date: "22/08", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "set26", date: "30/07", desc: "Crédito estorno MercadoLivre", value: -45.50, cat: "outros" },
+];
+
+const GOALS = [
+  { id: "reserva", name: "Reserva de emergência", target: 6600, saved: 6600, deadline: "Concluída", priority: "Alta" },
+  { id: "carro", name: "Troca de carro (piso)", target: 10000, saved: 6829, deadline: "Jan/2027", priority: "Alta" },
+  { id: "viagem", name: "Viagem Carnaval RJ", target: 3000, saved: 500, deadline: "Fev/2027", priority: "Alta" },
+];
+
+const CHECKPOINTS = [
+  { cycle: "Set/26", target: 7421 },
+  { cycle: "Out/26", target: 8021 },
+  { cycle: "Nov/26", target: 8626 },
+  { cycle: "Dez/26", target: 9238 },
+  { cycle: "Jan/27", target: 9857 },
+];
+
+const fmt = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtShort = (v) => v.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
+function MetricCard({ label, value, sub, color }) {
+  return (
+    <div style={{ background: "var(--surface-1)", borderRadius: "var(--radius)", padding: "12px 16px", flex: "1 1 140px", minWidth: 0 }}>
+      <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{label}</p>
+      <p style={{ fontSize: 22, fontWeight: 500, margin: 0, color: color || "var(--text-primary)" }}>{value}</p>
+      {sub && <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "2px 0 0" }}>{sub}</p>}
+    </div>
+  );
+}
+
+function ProgressBar({ pct, color }) {
+  const clamped = Math.min(100, Math.max(0, pct));
+  return (
+    <div style={{ background: "var(--surface-0)", borderRadius: 4, height: 8, width: "100%", overflow: "hidden" }}>
+      <div style={{ width: `${clamped}%`, height: "100%", background: color || "#1D9E75", borderRadius: 4, transition: "width 0.3s" }} />
+    </div>
+  );
+}
+
+function Pill({ label, active, onClick, color }) {
+  return (
+    <button onClick={onClick} style={{
+      padding: "4px 12px", borderRadius: 20, fontSize: 12, border: active ? "none" : "0.5px solid var(--border)",
+      background: active ? (color || "var(--text-primary)") : "transparent",
+      color: active ? "#fff" : "var(--text-secondary)", cursor: "pointer", whiteSpace: "nowrap", fontWeight: active ? 500 : 400, transition: "all 0.15s"
+    }}>{label}</button>
+  );
+}
+
+function Dashboard() {
+  const [expenses, setExpenses] = useState(initialExpenses);
+  const [filterCycle, setFilterCycle] = useState("all");
+  const [filterCat, setFilterCat] = useState("all");
+  const [tab, setTab] = useState("overview");
+  const [overviewCycle, setOverviewCycle] = useState("all");
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [showForm, setShowForm] = useState(false);
+  const [form, setForm] = useState({ cycle: "set26", date: "", desc: "", value: "", cat: "outros" });
+
+  const filtered = useMemo(() => {
+    return expenses.filter(e => {
+      if (filterCycle !== "all" && e.cycle !== filterCycle) return false;
+      if (filterCat !== "all" && e.cat !== filterCat) return false;
+      return true;
+    });
+  }, [expenses, filterCycle, filterCat]);
+
+  const totalFiltered = useMemo(() => filtered.reduce((s, e) => s + e.value, 0), [filtered]);
+
+  const byCycleTotals = useMemo(() => {
+    const m = {};
+    CYCLES.forEach(c => { m[c.id] = 0; });
+    expenses.forEach(e => { m[e.cycle] = (m[e.cycle] || 0) + e.value; });
+    return m;
+  }, [expenses]);
+
+  const byCatTotals = useMemo(() => {
+    const activeCycleFilter = tab === "overview" ? overviewCycle : filterCycle;
+    const src = activeCycleFilter === "all" ? expenses : expenses.filter(e => e.cycle === activeCycleFilter);
+    const m = {};
+    src.forEach(e => { m[e.cat] = (m[e.cat] || 0) + e.value; });
+    return Object.entries(m).sort((a, b) => b[1] - a[1]);
+  }, [expenses, filterCycle, overviewCycle, tab]);
+
+  const deliveryByCycle = useMemo(() => {
+    const m = {};
+    CYCLES.forEach(c => { m[c.id] = 0; });
+    expenses.filter(e => e.cat === "delivery_restaurante").forEach(e => { m[e.cycle] = (m[e.cycle] || 0) + e.value; });
+    return m;
+  }, [expenses]);
+
+  const aportes = useMemo(() => {
+    return CYCLES.map(c => {
+      const fat = byCycleTotals[c.id] || 0;
+      const sobra = SALARY - fat;
+      const aporte = Math.max(0, sobra - TERREIRO - BUFFER);
+      return { ...c, fatura: fat, aporte };
+    });
+  }, [byCycleTotals]);
+
+  const avgAporte = useMemo(() => {
+    const sum = aportes.reduce((s, a) => s + a.aporte, 0);
+    return sum / aportes.length;
+  }, [aportes]);
+
+  const avgFatura = useMemo(() => {
+    const sum = aportes.reduce((s, a) => s + a.fatura, 0);
+    return sum / aportes.length;
+  }, [aportes]);
+
+  const overviewFatura = useMemo(() => {
+    if (overviewCycle === "all") return avgFatura;
+    return byCycleTotals[overviewCycle] || 0;
+  }, [overviewCycle, avgFatura, byCycleTotals]);
+
+  const overviewAporte = useMemo(() => {
+    if (overviewCycle === "all") return avgAporte;
+    const fat = byCycleTotals[overviewCycle] || 0;
+    return Math.max(0, SALARY - fat - TERREIRO - BUFFER);
+  }, [overviewCycle, avgAporte, byCycleTotals]);
+
+  const overviewDelivery = useMemo(() => {
+    if (overviewCycle === "all") {
+      const vals = Object.values(deliveryByCycle);
+      return vals.reduce((s, v) => s + v, 0) / vals.length;
+    }
+    return deliveryByCycle[overviewCycle] || 0;
+  }, [overviewCycle, deliveryByCycle]);
+
+  const handleAddExpense = () => {
+    if (!form.date || !form.desc || !form.value) return;
+    setExpenses([...expenses, { cycle: form.cycle, date: form.date, desc: form.desc, value: parseFloat(form.value), cat: form.cat }]);
+    setForm({ ...form, date: "", desc: "", value: "" });
+    setShowForm(false);
+  };
+
+  const deliveryMeta = 100;
+  const currentCycleDelivery = deliveryByCycle["ago26"] || 0;
+
+  return (
+    <div style={{ fontFamily: "var(--font-sans)", color: "var(--text-primary)", maxWidth: 720, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16, flexWrap: "wrap", gap: 8 }}>
+        <div>
+          <h1 style={{ fontSize: 20, fontWeight: 500, margin: 0 }}>CFO Pessoal</h1>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "2px 0 0" }}>Salário R$ {fmtShort(SALARY)} · Ciclo 26→25</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} style={{
+          padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 500,
+          border: "0.5px solid var(--border-strong)", background: "transparent", color: "var(--text-primary)", cursor: "pointer"
+        }}>
+          <span style={{ fontSize: 14, marginRight: 4 }} aria-hidden="true">+</span>
+          Novo gasto
+        </button>
+      </div>
+
+      {showForm && (
+        <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
+          <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Adicionar gasto</p>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 8 }}>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Ciclo</label>
+              <select value={form.cycle} onChange={e => setForm({ ...form, cycle: e.target.value })} style={{ width: "100%", marginTop: 2 }}>
+                {CYCLES.map(c => <option key={c.id} value={c.id}>{c.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Data</label>
+              <input placeholder="dd/mm" value={form.date} onChange={e => setForm({ ...form, date: e.target.value })} style={{ width: "100%", marginTop: 2 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Valor (R$)</label>
+              <input type="number" step="0.01" value={form.value} onChange={e => setForm({ ...form, value: e.target.value })} style={{ width: "100%", marginTop: 2 }} />
+            </div>
+            <div>
+              <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Categoria</label>
+              <select value={form.cat} onChange={e => setForm({ ...form, cat: e.target.value })} style={{ width: "100%", marginTop: 2 }}>
+                {Object.entries(CATEGORIES).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
+              </select>
+            </div>
+            <div style={{ gridColumn: "1 / -1" }}>
+              <label style={{ fontSize: 11, color: "var(--text-muted)" }}>Descrição</label>
+              <input value={form.desc} onChange={e => setForm({ ...form, desc: e.target.value })} style={{ width: "100%", marginTop: 2 }} />
+            </div>
+          </div>
+          <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+            <button onClick={handleAddExpense} style={{ padding: "6px 16px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 500, border: "0.5px solid var(--border-accent)", background: "var(--bg-accent)", color: "var(--text-accent)", cursor: "pointer" }}>Salvar</button>
+            <button onClick={() => setShowForm(false)} style={{ padding: "6px 16px", borderRadius: "var(--radius)", fontSize: 13, border: "0.5px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}>Cancelar</button>
+          </div>
+        </div>
+      )}
+
+      <div style={{ display: "flex", gap: 6, marginBottom: 16, flexWrap: "wrap" }}>
+        <Pill label="Visão geral" active={tab === "overview"} onClick={() => setTab("overview")} />
+        <Pill label="Gastos" active={tab === "expenses"} onClick={() => setTab("expenses")} />
+        <Pill label="Metas" active={tab === "goals"} onClick={() => setTab("goals")} />
+        <Pill label="Aportes" active={tab === "aportes"} onClick={() => setTab("aportes")} />
+      </div>
+
+      {tab === "overview" && (
+        <>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+            <Pill label="Todos" active={overviewCycle === "all"} onClick={() => setOverviewCycle("all")} />
+            {CYCLES.map(c => <Pill key={c.id} label={c.label} active={overviewCycle === c.id} onClick={() => setOverviewCycle(c.id)} />)}
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <MetricCard label={overviewCycle === "all" ? "Fatura média" : `Fatura ${CYCLES.find(c=>c.id===overviewCycle)?.label}`} value={fmt(overviewFatura)} sub={`${Math.round(overviewFatura / SALARY * 100)}% do salário`} />
+            <MetricCard label={overviewCycle === "all" ? "Aporte médio" : "Aporte do ciclo"} value={fmt(overviewAporte)} sub={`Meta: R$ 640+`} color={overviewAporte >= 640 ? "#1D9E75" : "#E24B4A"} />
+            <MetricCard label={overviewCycle === "all" ? "Delivery (média)" : "Delivery no ciclo"} value={fmt(overviewDelivery)} sub={`Meta: ${fmt(deliveryMeta)}`} color={overviewDelivery <= deliveryMeta ? "#1D9E75" : "#E24B4A"} />
+          </div>
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Fatura por ciclo</p>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 120 }}>
+              {aportes.map(a => {
+                const maxFat = Math.max(...aportes.map(x => x.fatura));
+                const h = Math.max(8, (a.fatura / maxFat) * 100);
+                const isHigh = a.fatura > SALARY * 0.5;
+                return (
+                  <div key={a.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{fmtShort(a.fatura)}</span>
+                    <div style={{ width: "100%", height: h, background: isHigh ? "#E24B4A" : "#378ADD", borderRadius: "4px 4px 0 0", transition: "height 0.3s" }} />
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{a.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Delivery/Restaurante por ciclo (meta: {fmt(deliveryMeta)})</p>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: 6, height: 100 }}>
+              {CYCLES.map(c => {
+                const val = deliveryByCycle[c.id] || 0;
+                const maxD = Math.max(...Object.values(deliveryByCycle), deliveryMeta);
+                const h = Math.max(4, (val / maxD) * 80);
+                const over = val > deliveryMeta;
+                return (
+                  <div key={c.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
+                    <span style={{ fontSize: 10, color: over ? "#E24B4A" : "var(--text-muted)" }}>{fmtShort(val)}</span>
+                    <div style={{ width: "100%", height: h, background: over ? "#E24B4A" : "#1D9E75", borderRadius: "4px 4px 0 0", transition: "height 0.3s" }} />
+                    <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{c.label}</span>
+                  </div>
+                );
+              })}
+            </div>
+            <div style={{ borderTop: "1px dashed var(--border)", marginTop: 8, paddingTop: 4, fontSize: 11, color: "var(--text-muted)", textAlign: "center" }}>
+              Linha de meta: {fmt(deliveryMeta)}/ciclo
+            </div>
+          </div>
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px" }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Distribuição por categoria {overviewCycle === "all" ? "(todos os ciclos)" : `(${CYCLES.find(c=>c.id===overviewCycle)?.label})`}</p>
+            {byCatTotals.map(([cat, val]) => {
+              const total = byCatTotals.reduce((s, [, v]) => s + v, 0);
+              const pct = Math.round((val / total) * 100);
+              const c = CATEGORIES[cat];
+              const isSelected = selectedCat === cat;
+              return (
+                <div key={cat} style={{ marginBottom: 4 }}>
+                  <div onClick={() => setSelectedCat(isSelected ? null : cat)} style={{ cursor: "pointer", padding: "4px 0", borderRadius: 6, transition: "background 0.15s" }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, marginBottom: 2 }}>
+                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <span style={{ width: 8, height: 8, borderRadius: 2, background: c?.color || "#888", display: "inline-block" }} />
+                        <span style={{ fontWeight: isSelected ? 500 : 400 }}>{c?.label || cat}</span>
+                        <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{isSelected ? "▲" : "▼"}</span>
+                      </span>
+                      <span style={{ color: "var(--text-secondary)" }}>{fmt(val)} ({pct}%)</span>
+                    </div>
+                    <ProgressBar pct={pct} color={c?.color} />
+                  </div>
+                  {isSelected && (() => {
+                    const catExpenses = (overviewCycle === "all" ? expenses : expenses.filter(e => e.cycle === overviewCycle)).filter(e => e.cat === cat).sort((a, b) => {
+                      const ca = CYCLES.findIndex(c => c.id === a.cycle);
+                      const cb = CYCLES.findIndex(c => c.id === b.cycle);
+                      return ca !== cb ? ca - cb : 0;
+                    });
+                    const catTotal = catExpenses.reduce((s, e) => s + e.value, 0);
+                    return (
+                      <div style={{ background: "var(--surface-1)", borderRadius: 8, padding: "8px 12px", margin: "6px 0 8px", maxHeight: 250, overflowY: "auto" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-muted)", marginBottom: 6, padding: "0 0 4px", borderBottom: "0.5px solid var(--border)" }}>
+                          <span>{catExpenses.length} lançamentos</span>
+                          <span style={{ fontWeight: 500 }}>{fmt(catTotal)}</span>
+                        </div>
+                        {catExpenses.map((e, i) => (
+                          <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < catExpenses.length - 1 ? "0.5px solid var(--border)" : "none", fontSize: 12 }}>
+                            <span style={{ color: "var(--text-muted)", width: 38, flexShrink: 0, fontSize: 11 }}>{e.date}</span>
+                            <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.desc}</span>
+                            {e.parcela && <span style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--surface-2)", padding: "1px 5px", borderRadius: 6 }}>{e.parcela}</span>}
+                            <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, width: 36, textAlign: "center" }}>{CYCLES.find(c => c.id === e.cycle)?.label}</span>
+                            <span style={{ fontWeight: 500, flexShrink: 0, width: 68, textAlign: "right" }}>{fmt(e.value)}</span>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {tab === "expenses" && (
+        <>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 8 }}>
+            <Pill label="Todos os ciclos" active={filterCycle === "all"} onClick={() => setFilterCycle("all")} />
+            {CYCLES.map(c => <Pill key={c.id} label={c.label} active={filterCycle === c.id} onClick={() => setFilterCycle(c.id)} />)}
+          </div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginBottom: 12 }}>
+            <Pill label="Todas" active={filterCat === "all"} onClick={() => setFilterCat("all")} />
+            {Object.entries(CATEGORIES).map(([k, v]) => <Pill key={k} label={v.label} active={filterCat === k} onClick={() => setFilterCat(k)} color={v.color} />)}
+          </div>
+
+          <div style={{ background: "var(--surface-1)", borderRadius: "var(--radius)", padding: "8px 12px", marginBottom: 12, fontSize: 13 }}>
+            <span style={{ color: "var(--text-secondary)" }}>{filtered.length} itens</span>
+            <span style={{ float: "right", fontWeight: 500 }}>{fmt(totalFiltered)}</span>
+          </div>
+
+          <div style={{ maxHeight: 400, overflowY: "auto" }}>
+            {filtered.map((e, i) => {
+              const c = CATEGORIES[e.cat];
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "0.5px solid var(--border)", fontSize: 13 }}>
+                  <span style={{ width: 6, height: 6, borderRadius: 2, background: c?.color || "#888", flexShrink: 0 }} />
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.desc}</span>
+                  {e.parcela && <span style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--surface-1)", padding: "1px 6px", borderRadius: 8 }}>{e.parcela}</span>}
+                  <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, width: 40, textAlign: "center" }}>
+                    {CYCLES.find(c => c.id === e.cycle)?.label}
+                  </span>
+                  <span style={{ fontWeight: 500, flexShrink: 0, width: 72, textAlign: "right" }}>{fmt(e.value)}</span>
+                </div>
+              );
+            })}
+          </div>
+        </>
+      )}
+
+      {tab === "goals" && (
+        <>
+          {GOALS.map(g => {
+            const pct = Math.round((g.saved / g.target) * 100);
+            const done = pct >= 100;
+            return (
+              <div key={g.id} style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+                  <span style={{ fontWeight: 500, fontSize: 14 }}>{g.name}</span>
+                  <span style={{ fontSize: 12, padding: "2px 8px", borderRadius: 8, background: done ? "var(--bg-success)" : "var(--bg-warning)", color: done ? "var(--text-success)" : "var(--text-warning)" }}>
+                    {done ? "Concluída" : g.deadline}
+                  </span>
+                </div>
+                <div style={{ display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--text-secondary)", marginBottom: 6 }}>
+                  <span>{fmt(g.saved)} de {fmt(g.target)}</span>
+                  <span>{pct}%</span>
+                </div>
+                <ProgressBar pct={pct} color={done ? "#1D9E75" : "#378ADD"} />
+                {!done && g.id === "carro" && (
+                  <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "8px 0 0" }}>
+                    Falta {fmt(g.target - g.saved)} · Financiar ~{fmt(g.target - g.saved)} em 36x (entrada + aportes até jan)
+                  </p>
+                )}
+              </div>
+            );
+          })}
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px" }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Checkpoints mensais (saldo disponível p/ metas)</p>
+            {CHECKPOINTS.map((cp, i) => (
+              <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "6px 0", borderBottom: i < CHECKPOINTS.length - 1 ? "0.5px solid var(--border)" : "none", fontSize: 13 }}>
+                <span style={{ width: 60, color: "var(--text-secondary)" }}>{cp.cycle}</span>
+                <div style={{ flex: 1 }}>
+                  <ProgressBar pct={(cp.target / 10000) * 100} color="#378ADD" />
+                </div>
+                <span style={{ fontWeight: 500, width: 80, textAlign: "right" }}>{fmt(cp.target)}</span>
+                {cp.cycle === "Jan/27" && <span style={{ fontSize: 16 }} aria-hidden="true">🚗</span>}
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {tab === "aportes" && (
+        <>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginBottom: 16 }}>
+            <MetricCard label="Aporte médio" value={fmt(avgAporte)} sub="Fórmula: (Salário − Fatura − R$127) − R$1.000" />
+            <MetricCard label="Com corte assinaturas" value={fmt(avgAporte + 123.39)} sub="+R$ 123,39/mês" color="#1D9E75" />
+          </div>
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Aporte real por ciclo</p>
+            {aportes.map((a, i) => {
+              const isNeg = a.aporte <= 0;
+              const status = a.aporte >= 640 ? "🟢" : a.aporte >= 400 ? "🟡" : "🔴";
+              return (
+                <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: i < aportes.length - 1 ? "0.5px solid var(--border)" : "none", fontSize: 13 }}>
+                  <span style={{ width: 20, textAlign: "center" }}>{status}</span>
+                  <span style={{ width: 50, color: "var(--text-secondary)" }}>{a.label}</span>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+                    <div style={{ display: "flex", justifyContent: "space-between", fontSize: 11, color: "var(--text-muted)" }}>
+                      <span>Fatura: {fmt(a.fatura)}</span>
+                      <span>Aporte: {isNeg ? "R$ 0,00" : fmt(a.aporte)}</span>
+                    </div>
+                    <ProgressBar pct={Math.min(100, (a.aporte / 800) * 100)} color={isNeg ? "#E24B4A" : a.aporte >= 640 ? "#1D9E75" : "#BA7517"} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px" }}>
+            <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Fórmula do ciclo</p>
+            <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse" }}>
+              <tbody>
+                <tr><td style={{ padding: "4px 0", color: "var(--text-secondary)" }}>Salário líquido</td><td style={{ textAlign: "right", padding: "4px 0" }}>{fmt(SALARY)}</td></tr>
+                <tr><td style={{ padding: "4px 0", color: "var(--text-secondary)" }}>(−) Fatura do cartão (média)</td><td style={{ textAlign: "right", padding: "4px 0", color: "#E24B4A" }}>−{fmt(avgFatura)}</td></tr>
+                <tr><td style={{ padding: "4px 0", color: "var(--text-secondary)" }}>(−) Mensalidade terreiro</td><td style={{ textAlign: "right", padding: "4px 0", color: "#E24B4A" }}>−{fmt(TERREIRO)}</td></tr>
+                <tr><td style={{ padding: "4px 0", color: "var(--text-secondary)" }}>(−) Orçamento mensal</td><td style={{ textAlign: "right", padding: "4px 0", color: "#E24B4A" }}>−{fmt(BUFFER)}</td></tr>
+                <tr style={{ borderTop: "0.5px solid var(--border)" }}><td style={{ padding: "6px 0", fontWeight: 500 }}>(=) Aporte no cofrinho</td><td style={{ textAlign: "right", padding: "6px 0", fontWeight: 500, color: "#1D9E75" }}>{fmt(Math.max(0, SALARY - avgFatura - TERREIRO - BUFFER))}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
+const root = ReactDOM.createRoot(document.getElementById("root"));
+root.render(<Dashboard />);
+</script>
+</body>
+</html>
