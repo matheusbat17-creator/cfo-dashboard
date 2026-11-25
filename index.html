@@ -92,9 +92,11 @@
 <script crossorigin src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
 
 <script type="text/babel" data-type="module">
-const { useState, useMemo } = React;
+const { useState, useMemo, useEffect } = React;
 
-const SALARY = 3140;
+const SALARY_OLD = 3140;
+const SALARY = 3511.65; // líquido real do holerite (bruto R$3.900)
+const salaryOf = (id) => (id === "dez26" ? SALARY : SALARY_OLD);
 const TERREIRO = 127;
 const BUFFER = 1000;
 
@@ -108,6 +110,7 @@ const CATEGORIES = {
   combustivel: { label: "Combustível", color: "#888780" },
   cuidados_pessoais: { label: "Cuidados pessoais", color: "#BA7517" },
   vestuario: { label: "Vestuário", color: "#639922" },
+  presente: { label: "Presentes", color: "#9B59B6" },
   viagem: { label: "Viagem/Carnaval", color: "#185FA5" },
   outros: { label: "Outros/Diversos", color: "#5F5E5A" },
 };
@@ -120,6 +123,9 @@ const CYCLES = [
   { id: "jul26", label: "Jul/26", period: "26/05 → 24/06", venc: "01/07/2026" },
   { id: "ago26", label: "Ago/26", period: "25/06 → 27/07", venc: "01/08/2026" },
   { id: "set26", label: "Set/26", period: "28/07 → 25/08", venc: "01/09/2026" },
+  { id: "out26", label: "Out/26", period: "26/08 → 24/09", venc: "01/10/2026" },
+  { id: "nov26", label: "Nov/26", period: "25/09 → 26/10", venc: "01/11/2026" },
+  { id: "dez26", label: "Dez/26", period: "27/10 → 24/11", venc: "01/12/2026" },
 ];
 
 const initialExpenses = [
@@ -317,6 +323,102 @@ const initialExpenses = [
   { cycle: "set26", date: "21/08", desc: "HBO Max", value: 29.90, cat: "cortavel" },
   { cycle: "set26", date: "22/08", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
   { cycle: "set26", date: "30/07", desc: "Crédito estorno MercadoLivre", value: -45.50, cat: "outros" },
+
+  // === OUT/26 (fatura venc 01/10) ===
+  { cycle: "out26", date: "25/08", desc: "MoreSemiJoias (presente 1 ano namoro)", value: 56.34, cat: "presente", parcela: "01/03" },
+  { cycle: "out26", date: "29/08", desc: "Lojas Livia (produtos cabelo)", value: 42.93, cat: "cuidados_pessoais", parcela: "01/02" },
+  { cycle: "out26", date: "22/09", desc: "00063 SH Rio Preto (presente aniversário namorada)", value: 69.95, cat: "presente", parcela: "01/02" },
+  { cycle: "out26", date: "21/09", desc: "SCP Essencial Set/26", value: 11.44, cat: "essencial" },
+  { cycle: "out26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "11/12" },
+  { cycle: "out26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "04/06" },
+  { cycle: "out26", date: "28/07", desc: "CentralSambaP", value: 48.79, cat: "compromisso", parcela: "02/03" },
+  { cycle: "out26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.35, cat: "viagem", parcela: "02/06" },
+  { cycle: "out26", date: "05/09", desc: "MercadoLivre (bota de trilha)", value: 38.42, cat: "compras_online", parcela: "01/04" },
+  { cycle: "out26", date: "24/08", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "out26", date: "27/08", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "out26", date: "30/08", desc: "Anthropic Claude Sub", value: 116.75, cat: "cortavel" },
+  { cycle: "out26", date: "30/08", desc: "IOF despesa exterior", value: 4.09, cat: "outros" },
+  { cycle: "out26", date: "01/09", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "out26", date: "04/09", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "out26", date: "05/09", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "out26", date: "11/09", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "out26", date: "12/09", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "out26", date: "13/09", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "out26", date: "15/09", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "out26", date: "17/09", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
+  { cycle: "out26", date: "18/09", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
+  { cycle: "out26", date: "21/09", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "out26", date: "21/09", desc: "HBO Max", value: 29.90, cat: "cortavel" },
+  { cycle: "out26", date: "10/08", desc: "Crédito estorno Ticketmaster", value: -0.02, cat: "outros" },
+
+  // === NOV/26 (fatura venc 01/11) ===
+  { cycle: "nov26", date: "25/08", desc: "MoreSemiJoias (presente 1 ano namoro)", value: 56.33, cat: "presente", parcela: "02/03" },
+  { cycle: "nov26", date: "29/08", desc: "Lojas Livia (produtos cabelo)", value: 42.92, cat: "cuidados_pessoais", parcela: "02/02" },
+  { cycle: "nov26", date: "22/09", desc: "SH Rio Preto (presente aniversário namorada)", value: 69.95, cat: "presente", parcela: "02/02" },
+  { cycle: "nov26", date: "03/10", desc: "AmericanFlex - colchão (100% reembolsado pela mãe, valor bruto R$345,80)", value: 0, cat: "outros", parcela: "01/05" },
+  { cycle: "nov26", date: "10/10", desc: "Lojas G (itens banheiro - mudança de casa)", value: 37.49, cat: "essencial", parcela: "01/02" },
+  { cycle: "nov26", date: "23/10", desc: "MulttecEletroelet - portão (100% coberto pela avó, valor bruto R$265,00)", value: 0, cat: "outros", parcela: "01/02" },
+  { cycle: "nov26", date: "25/09", desc: "Restaurante (almoço aniversário namorada)", value: 194.54, cat: "presente" },
+  { cycle: "nov26", date: "26/09", desc: "RodoSnack Buenos Aires (viagem, cota 1/2)", value: 33.75, cat: "viagem" },
+  { cycle: "nov26", date: "26/09", desc: "Restaurante Rota das C (viagem, cota 1/2)", value: 47.31, cat: "viagem" },
+  { cycle: "nov26", date: "26/09", desc: "Restaurante e Lanchone (viagem, cota 1/2)", value: 6.50, cat: "viagem" },
+  { cycle: "nov26", date: "26/09", desc: "RodoSnack PetroPen (viagem, cota 1/2)", value: 17.20, cat: "viagem" },
+  { cycle: "nov26", date: "21/10", desc: "SCP Essencial Out/26", value: 11.44, cat: "essencial" },
+  { cycle: "nov26", date: "05/09", desc: "Crédito MercadoLivre", value: -0.03, cat: "outros" },
+  { cycle: "nov26", date: "10/11", desc: "ZP Felipe MA55421 (ÚLTIMA PARCELA)", value: 99.53, cat: "compromisso", parcela: "12/12" },
+  { cycle: "nov26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "05/06" },
+  { cycle: "nov26", date: "28/07", desc: "CentralSambaP (ÚLTIMA PARCELA)", value: 48.79, cat: "compromisso", parcela: "03/03" },
+  { cycle: "nov26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.33, cat: "viagem", parcela: "03/06" },
+  { cycle: "nov26", date: "05/09", desc: "MercadoLivre (bota de trilha)", value: 38.42, cat: "compras_online", parcela: "02/04" },
+  { cycle: "nov26", date: "24/09", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
+  { cycle: "nov26", date: "27/09", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "nov26", date: "30/09", desc: "Anthropic Claude Sub", value: 119.03, cat: "cortavel" },
+  { cycle: "nov26", date: "30/09", desc: "IOF despesa exterior", value: 4.17, cat: "outros" },
+  { cycle: "nov26", date: "01/10", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
+  { cycle: "nov26", date: "04/10", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "nov26", date: "05/10", desc: "TIM POS", value: 66.99, cat: "essencial" },
+  { cycle: "nov26", date: "09/10", desc: "Japa Food Rio Preto", value: 48.32, cat: "delivery_restaurante" },
+  { cycle: "nov26", date: "11/10", desc: "Google One", value: 9.99, cat: "cortavel" },
+  { cycle: "nov26", date: "12/10", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "nov26", date: "13/10", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "nov26", date: "15/10", desc: "TotalPass", value: 89.90, cat: "essencial" },
+  { cycle: "nov26", date: "17/10", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
+  { cycle: "nov26", date: "18/10", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
+  { cycle: "nov26", date: "21/10", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "nov26", date: "21/10", desc: "HBO Max", value: 29.90, cat: "cortavel" },
+  { cycle: "nov26", date: "23/10", desc: "Uber", value: 7.54, cat: "uber" },
+  { cycle: "nov26", date: "24/10", desc: "Amazon Kindle+ (não identificado - verificar duplicidade)", value: 24.90, cat: "cortavel" },
+  // === DEZ/26 (fatura venc 01/12, fechada R$2.269,69; líquida R$1.833,44) ===
+  { cycle: "dez26", date: "parcela", desc: "MoreSemiJoias 3/3 (presente 1 ano namorada)", value: 56.33, cat: "presente" },
+  { cycle: "dez26", date: "parcela", desc: "AmericanFlex 2/5 (R$345,80 — mãe reembolsa)", value: 0.00, cat: "compromisso" },
+  { cycle: "dez26", date: "parcela", desc: "Lojas G 2/2 (casa/banheiro)", value: 37.49, cat: "essencial" },
+  { cycle: "dez26", date: "05/11", desc: "Multtec 2/2 (R$265 quitada antecipada; avó cobriu)", value: 0.00, cat: "compromisso" },
+  { cycle: "dez26", date: "01/11", desc: "Controlepdv (bebidas show — sai do cofrinho)", value: 280.00, cat: "viagem" },
+  { cycle: "dez26", date: "04/11", desc: "Mrm empreendimentos (hotel show)", value: 254.59, cat: "viagem" },
+  { cycle: "dez26", date: "21/11", desc: "BR1*ACOUGUE REZENDE (R$110,30 — carnes p/ churrasco; namorada reembolsa)", value: 0, cat: "outros" },
+  { cycle: "dez26", date: "11/11", desc: "SCP Essencial (a confirmar)", value: 11.44, cat: "outros" },
+  { cycle: "dez26", date: "parcela", desc: "Eletropar 6/6", value: 74.98, cat: "compromisso" },
+  { cycle: "dez26", date: "parcela", desc: "Ticketmaster 4/6", value: 83.33, cat: "compromisso" },
+  { cycle: "dez26", date: "parcela", desc: "ML bota 3/4", value: 38.39, cat: "vestuario" },
+  { cycle: "dez26", date: "parcela", desc: "ML ayumi 1/2 (R$83,76 — irmão paga metade)", value: 41.88, cat: "compras_online" },
+  { cycle: "dez26", date: "parcela", desc: "Thaisio 1/3 (capa religiosa)", value: 106.19, cat: "compromisso" },
+  { cycle: "dez26", date: "—", desc: "Uber", value: 9.95, cat: "uber" },
+  { cycle: "dez26", date: "—", desc: "Uber", value: 13.95, cat: "uber" },
+  { cycle: "dez26", date: "—", desc: "Uber", value: 15.07, cat: "uber" },
+  { cycle: "dez26", date: "28/10", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
+  { cycle: "dez26", date: "20/11", desc: "Amazon Prime (2ª cobrança — verificar)", value: 19.90, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "Claude Sub", value: 117.65, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "IOF Claude", value: 4.12, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "Espaço Laser P10", value: 114.99, cat: "compromisso" },
+  { cycle: "dez26", date: "—", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
+  { cycle: "dez26", date: "—", desc: "TIM", value: 66.99, cat: "essencial" },
+  { cycle: "dez26", date: "—", desc: "Google", value: 9.99, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "Spotify", value: 23.90, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "MAPFRE Seguro 6/12", value: 209.89, cat: "essencial" },
+  { cycle: "dez26", date: "—", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
+  { cycle: "dez26", date: "—", desc: "HBO Max", value: 29.90, cat: "cortavel" },
 ];
 
 const GOALS = [
@@ -331,6 +433,34 @@ const CHECKPOINTS = [
   { cycle: "Nov/26", target: 8626 },
   { cycle: "Dez/26", target: 9238 },
   { cycle: "Jan/27", target: 9857 },
+];
+
+const META_APORTE = 640;
+const GYMPASS = 99; // repasse mensal à namorada (fora do cartão)
+
+// Previsão: só despesas fixas mapeadas + parcelas restantes. [nome, valor no cartão, reembolso]
+const FIXAS = [
+  ["MAPFRE Seguro", 209.89, 0],
+  ["Claude + IOF", 121.77, 0],
+  ["Espaço Laser", 114.99, 0],
+  ["HTM Comunidade (namorada paga metade)", 97.14, 48.57],
+  ["TIM", 66.99, 0],
+  ["HBO Max", 29.90, 0],
+  ["Spotify", 23.90, 0],
+  ["Amazon Prime", 19.90, 0],
+  ["MP Melimais", 19.90, 0],
+  ["Google", 9.99, 0],
+  ["iFood", 7.95, 0],
+  ["Apple iCloud", 5.90, 0],
+];
+const FORECAST = [
+  { id: "jan27", label: "Jan/27", period: "25/11 → 24/12", venc: "01/01/2027", dias: 30, parcelas: [
+    ["Ticketmaster 5/6", 83.33, 0], ["ML bota 4/4", 38.39, 0], ["ML ayumi 2/2 (irmão paga metade)", 83.76, 41.88],
+    ["Thaisio 2/3", 106.19, 0], ["AmericanFlex 3/5 (mãe reembolsa)", 345.80, 345.80] ] },
+  { id: "fev27", label: "Fev/27", period: "25/12 → 24/01", venc: "01/02/2027", dias: 31, parcelas: [
+    ["Ticketmaster 6/6", 83.33, 0], ["Thaisio 3/3", 106.19, 0], ["AmericanFlex 4/5 (mãe reembolsa)", 345.80, 345.80] ] },
+  { id: "mar27", label: "Mar/27", period: "25/01 → 24/02", venc: "01/03/2027", dias: 31, parcelas: [
+    ["AmericanFlex 5/5 (mãe reembolsa)", 345.80, 345.80] ] },
 ];
 
 const fmt = (v) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -370,10 +500,11 @@ function Dashboard() {
   const [filterCycle, setFilterCycle] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [tab, setTab] = useState("overview");
+  const [metaAporte, setMetaAporte] = useState(META_APORTE);
   const [overviewCycle, setOverviewCycle] = useState("all");
   const [selectedCat, setSelectedCat] = useState(null);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ cycle: "set26", date: "", desc: "", value: "", cat: "outros" });
+  const [form, setForm] = useState({ cycle: "dez26", date: "", desc: "", value: "", cat: "outros" });
 
   const filtered = useMemo(() => {
     return expenses.filter(e => {
@@ -410,7 +541,7 @@ function Dashboard() {
   const aportes = useMemo(() => {
     return CYCLES.map(c => {
       const fat = byCycleTotals[c.id] || 0;
-      const sobra = SALARY - fat;
+      const sobra = salaryOf(c.id) - fat;
       const aporte = Math.max(0, sobra - TERREIRO - BUFFER);
       return { ...c, fatura: fat, aporte };
     });
@@ -466,7 +597,7 @@ function Dashboard() {
           padding: "6px 14px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 500,
           border: "0.5px solid var(--border-strong)", background: "transparent", color: "var(--text-primary)", cursor: "pointer"
         }}>
-          <span style={{ fontSize: 14, marginRight: 4 }} aria-hidden="true">+</span>
+          <span style={{ marginRight: 4 }}>+</span>
           Novo gasto
         </button>
       </div>
@@ -512,6 +643,7 @@ function Dashboard() {
         <Pill label="Gastos" active={tab === "expenses"} onClick={() => setTab("expenses")} />
         <Pill label="Metas" active={tab === "goals"} onClick={() => setTab("goals")} />
         <Pill label="Aportes" active={tab === "aportes"} onClick={() => setTab("aportes")} />
+        <Pill label="Previsão" active={tab === "previsao"} onClick={() => setTab("previsao")} />
       </div>
 
       {tab === "overview" && (
@@ -533,7 +665,7 @@ function Dashboard() {
               {aportes.map(a => {
                 const maxFat = Math.max(...aportes.map(x => x.fatura));
                 const h = Math.max(8, (a.fatura / maxFat) * 100);
-                const isHigh = a.fatura > SALARY * 0.5;
+                const isHigh = a.fatura > salaryOf(a.id) * 0.5;
                 return (
                   <div key={a.id} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: 4 }}>
                     <span style={{ fontSize: 10, color: "var(--text-muted)" }}>{fmtShort(a.fatura)}</span>
@@ -690,7 +822,7 @@ function Dashboard() {
                   <ProgressBar pct={(cp.target / 10000) * 100} color="#378ADD" />
                 </div>
                 <span style={{ fontWeight: 500, width: 80, textAlign: "right" }}>{fmt(cp.target)}</span>
-                {cp.cycle === "Jan/27" && <span style={{ fontSize: 16 }} aria-hidden="true">🚗</span>}
+                {cp.cycle === "Jan/27" && <span>🚗</span>}
               </div>
             ))}
           </div>
@@ -739,6 +871,88 @@ function Dashboard() {
           </div>
         </>
       )}
+      {tab === "previsao" && (() => {
+        const sum = (a, i) => a.reduce((t, x) => t + x[i], 0);
+        const meses = FORECAST.map(m => {
+          const fixasCartao = sum(FIXAS, 1), parcCartao = sum(m.parcelas, 1);
+          const reemb = sum(FIXAS, 2) + sum(m.parcelas, 2);
+          const faturaCartao = fixasCartao + parcCartao;
+          const faturaLiquida = faturaCartao - reemb;
+          const aporteMax = SALARY - faturaLiquida - GYMPASS - TERREIRO - BUFFER;
+          const folga = Math.max(0, aporteMax - metaAporte);
+          return { ...m, fixasCartao, parcCartao, reemb, faturaCartao, faturaLiquida, aporteMax, folga };
+        });
+        const row = (label, get, opts = {}) => (
+          <tr style={{ borderTop: opts.top ? "0.5px solid var(--border)" : "none" }}>
+            <td style={{ padding: "6px 0", color: opts.strong ? "var(--text-primary)" : "var(--text-secondary)", fontWeight: opts.strong ? 500 : 400 }}>{label}</td>
+            {meses.map(m => <td key={m.id} style={{ textAlign: "right", padding: "6px 0", fontWeight: opts.strong ? 500 : 400, color: opts.color || "var(--text-primary)" }}>{get(m)}</td>)}
+          </tr>
+        );
+        return (
+          <>
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+              <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 4px" }}>Quanto ainda posso gastar no cartão</p>
+              <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "0 0 12px" }}>
+                Gasto extra além das despesas fixas e parcelas já mapeadas, mantendo o aporte na meta.
+              </p>
+              <label style={{ fontSize: 12, color: "var(--text-secondary)", display: "flex", alignItems: "center", gap: 8, marginBottom: 14 }}>
+                Meta de aporte por ciclo: R$
+                <input type="number" value={metaAporte} onChange={e => setMetaAporte(Number(e.target.value) || 0)}
+                  style={{ width: 90, padding: "4px 8px", borderRadius: 6, border: "0.5px solid var(--border)", background: "var(--surface-1)", color: "var(--text-primary)", fontSize: 13 }} />
+              </label>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {meses.map(m => (
+                  <MetricCard key={m.id} label={`${m.label} (${m.period})`} value={fmt(m.folga)}
+                    sub={`≈ ${fmt(m.folga / (m.dias / 7))}/semana · ${fmt(m.folga / m.dias)}/dia`}
+                    color={m.folga > 0 ? "#1D9E75" : "#E24B4A"} />
+                ))}
+              </div>
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "12px 0 0" }}>
+                Vale para compras no cartão (Uber, delivery, presentes, compras online). O orçamento de R$ 1.000 na conta é à parte.
+              </p>
+            </div>
+
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+              <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 12px" }}>Projeção só com o que já está mapeado</p>
+              <div style={{ overflowX: "auto" }}>
+                <table style={{ width: "100%", fontSize: 13, borderCollapse: "collapse", minWidth: 420 }}>
+                  <thead>
+                    <tr style={{ fontSize: 11, color: "var(--text-muted)" }}>
+                      <th style={{ textAlign: "left", fontWeight: 400, padding: "4px 0" }}></th>
+                      {meses.map(m => <th key={m.id} style={{ textAlign: "right", fontWeight: 400, padding: "4px 0" }}>{m.label}<br />venc {m.venc.slice(0, 5)}</th>)}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {row("Salário líquido", () => fmt(SALARY))}
+                    {row("Despesas fixas (cartão)", m => fmt(m.fixasCartao))}
+                    {row("Parcelas restantes", m => fmt(m.parcCartao))}
+                    {row("Fatura no cartão", m => fmt(m.faturaCartao), { strong: true, top: true })}
+                    {row("(−) Reembolsos (mãe, irmão, namorada)", m => `−${fmt(m.reemb)}`, { color: "#1D9E75" })}
+                    {row("Fatura líquida", m => fmt(m.faturaLiquida), { strong: true, top: true })}
+                    {row("(−) Gympass (repasse à namorada)", () => `−${fmt(GYMPASS)}`, { color: "#E24B4A" })}
+                    {row("(−) Terreiro", () => `−${fmt(TERREIRO)}`, { color: "#E24B4A" })}
+                    {row("(−) Orçamento mensal", () => `−${fmt(BUFFER)}`, { color: "#E24B4A" })}
+                    {row("Aporte máximo (sem gasto extra)", m => fmt(m.aporteMax), { strong: true, top: true, color: "#1D9E75" })}
+                    {row(`Meta de aporte`, () => fmt(metaAporte))}
+                    {row("Folga para gastar", m => fmt(m.folga), { strong: true, color: "#1D9E75" })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: "16px 20px", marginBottom: 16 }}>
+              <p style={{ fontSize: 14, fontWeight: 500, margin: "0 0 8px" }}>O que está incluído</p>
+              <p style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 6px" }}>Fixas mensais: {FIXAS.map(f => `${f[0]} ${fmtShort(f[1])}`).join(" · ")}</p>
+              {meses.map(m => (
+                <p key={m.id} style={{ fontSize: 12, color: "var(--text-secondary)", margin: "0 0 6px" }}>{m.label} — parcelas: {m.parcelas.map(f => `${f[0]} ${fmtShort(f[1])}`).join(" · ")}</p>
+              ))}
+              <p style={{ fontSize: 11, color: "var(--text-muted)", margin: "8px 0 0" }}>
+                Atenção: confirmar até quando vai o Espaço Laser. Kindle+ e SCP Essencial ficaram de fora até serem identificados. TotalPass encerrado (agora Gympass, R$ 99 repassados à namorada).
+              </p>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 }
