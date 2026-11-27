@@ -548,7 +548,17 @@ function Private({ session }) {
 
         {tab === "goals" && (
           <>
-            <section className="sec" style={{ marginTop: 6 }}>
+            {settings.cofrinho && (
+              <section className="hero" aria-label="Cofrinho">
+                <p className="hero-label">Cofrinho em {settings.cofrinho.as_of}</p>
+                <p className="hero-fig"><small>R$</small><M v={fmtNum(settings.cofrinho.balance)} plain /></p>
+                <div className="pair" style={{ marginTop: 18 }}>
+                  <div><p>Reserva de emergência</p><strong><M v={settings.cofrinho.reserve} /></strong></div>
+                  <div><p>Dinheiro das metas</p><strong><M v={settings.cofrinho.balance - settings.cofrinho.reserve} /></strong></div>
+                </div>
+              </section>
+            )}
+            <section className="sec">
               <h2>Metas</h2>
               {goals.map((g) => {
                 const p = Math.min(100, (g.saved / g.target) * 100);
