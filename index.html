@@ -94,6 +94,18 @@
 <script type="text/babel" data-type="module">
 const { useState, useMemo, useEffect } = React;
 
+// Fonte de dados: Supabase (projeto cfo-pessoal). Chave "anon" — só leitura pública
+// e inserção restrita por RLS (ver policy "anon can insert manual expenses"); nunca
+// usar a service_role key aqui, pois este arquivo é publicado e fica visível a quem
+// tiver o link.
+const SUPABASE_URL = "https://ygyifpcpweguurdyrnmm.supabase.co";
+const SUPABASE_ANON_KEY = "sb_publishable_t1sQvkdv8qxrDc7DhSmRQA_zlIsQg6H";
+const SUPABASE_HEADERS = {
+  apikey: SUPABASE_ANON_KEY,
+  Authorization: `Bearer ${SUPABASE_ANON_KEY}`,
+  "Content-Type": "application/json",
+};
+
 const SALARY_OLD = 3140;
 const SALARY = 3511.65; // líquido real do holerite (bruto R$3.900)
 const salaryOf = (id) => (id === "dez26" ? SALARY : SALARY_OLD);
@@ -128,298 +140,7 @@ const CYCLES = [
   { id: "dez26", label: "Dez/26", period: "27/10 → 24/11", venc: "01/12/2026" },
 ];
 
-const initialExpenses = [
-  // === MAR/26 (fatura venc 01/03) ===
-  { cycle: "mar26", date: "14/11", desc: "Auto Peças Furlan", value: 945.25, cat: "compromisso", parcela: "04/04" },
-  { cycle: "mar26", date: "03/02", desc: "686 Skyfit Academia", value: 30.00, cat: "essencial" },
-  { cycle: "mar26", date: "13/02", desc: "Taça Macha Explosão", value: 25.00, cat: "outros" },
-  { cycle: "mar26", date: "14/02", desc: "Fabiana de Oliveira (lanchonete)", value: 72.80, cat: "delivery_restaurante" },
-  { cycle: "mar26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "04/12" },
-  { cycle: "mar26", date: "02/12", desc: "FM2S Treinamento", value: 49.99, cat: "compromisso", parcela: "03/04" },
-  { cycle: "mar26", date: "16/01", desc: "MercadoLivre parcela", value: 24.30, cat: "compromisso", parcela: "02/04" },
-  { cycle: "mar26", date: "27/01", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "mar26", date: "29/01", desc: "MercadoLivre avulsa", value: 28.90, cat: "compras_online" },
-  { cycle: "mar26", date: "01/02", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "mar26", date: "05/02", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "mar26", date: "10/02", desc: "MercadoLivre avulsa", value: 46.90, cat: "compras_online" },
-  { cycle: "mar26", date: "11/02", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "mar26", date: "12/02", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "mar26", date: "13/02", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "mar26", date: "17/02", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
-  { cycle: "mar26", date: "20/02", desc: "HBO Max", value: 18.90, cat: "cortavel" },
-
-  // === ABR/26 (fatura venc 01/04) ===
-  { cycle: "abr26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "01/03" },
-  { cycle: "abr26", date: "14/03", desc: "Me Linda Cosmetic", value: 44.55, cat: "compromisso", parcela: "01/02" },
-  { cycle: "abr26", date: "23/02", desc: "SCP Essencial Fev", value: 11.44, cat: "essencial" },
-  { cycle: "abr26", date: "24/02", desc: "Unidade Skyfit SA", value: 139.90, cat: "essencial" },
-  { cycle: "abr26", date: "23/03", desc: "SCP Essencial Mar", value: 11.44, cat: "essencial" },
-  { cycle: "abr26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "05/12" },
-  { cycle: "abr26", date: "02/12", desc: "FM2S Treinamento", value: 49.99, cat: "compromisso", parcela: "04/04" },
-  { cycle: "abr26", date: "16/01", desc: "MercadoLivre parcela", value: 24.28, cat: "compromisso", parcela: "03/04" },
-  { cycle: "abr26", date: "24/02", desc: "Shopee CasaSalvador", value: 63.63, cat: "compromisso", parcela: "01/02" },
-  { cycle: "abr26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "01/03" },
-  { cycle: "abr26", date: "21/03", desc: "Nuv Brunogladarto", value: 20.95, cat: "compromisso", parcela: "01/02" },
-  { cycle: "abr26", date: "23/02", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "abr26", date: "24/02", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "abr26", date: "28/02", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "abr26", date: "01/03", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "abr26", date: "05/03", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "abr26", date: "11/03", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "abr26", date: "12/03", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "abr26", date: "13/03", desc: "Uber", value: 7.74, cat: "uber" },
-  { cycle: "abr26", date: "13/03", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "abr26", date: "14/03", desc: "MP Unique Cafés", value: 19.90, cat: "outros" },
-  { cycle: "abr26", date: "17/03", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
-  { cycle: "abr26", date: "20/03", desc: "HBO Max", value: 18.90, cat: "cortavel" },
-  { cycle: "abr26", date: "23/03", desc: "Unidade Skyfit SA", value: 139.90, cat: "outros" },
-
-  // === MAI/26 (fatura venc 01/05) ===
-  { cycle: "mai26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "02/03" },
-  { cycle: "mai26", date: "14/03", desc: "Me Linda Cosmetic", value: 44.54, cat: "compromisso", parcela: "02/02" },
-  { cycle: "mai26", date: "25/03", desc: "Autoposto Jardim", value: 30.00, cat: "combustivel" },
-  { cycle: "mai26", date: "25/03", desc: "Max Jd São Marcos", value: 99.79, cat: "outros" },
-  { cycle: "mai26", date: "29/03", desc: "Bar São Jorge", value: 30.00, cat: "delivery_restaurante" },
-  { cycle: "mai26", date: "16/04", desc: "Posto Monte Carlo", value: 100.00, cat: "combustivel" },
-  { cycle: "mai26", date: "22/04", desc: "SCP Essencial Abr", value: 11.44, cat: "essencial" },
-  { cycle: "mai26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "06/12" },
-  { cycle: "mai26", date: "16/01", desc: "MercadoLivre parcela", value: 24.28, cat: "compromisso", parcela: "04/04" },
-  { cycle: "mai26", date: "24/02", desc: "Shopee CasaSalvador", value: 63.63, cat: "compromisso", parcela: "02/02" },
-  { cycle: "mai26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "02/03" },
-  { cycle: "mai26", date: "21/03", desc: "Nuv Brunogladarto", value: 20.95, cat: "compromisso", parcela: "02/02" },
-  { cycle: "mai26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "01/03" },
-  { cycle: "mai26", date: "24/03", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "mai26", date: "25/03", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "mai26", date: "25/03", desc: "Amazon BR", value: 50.58, cat: "compras_online" },
-  { cycle: "mai26", date: "28/03", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "mai26", date: "01/04", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "mai26", date: "04/04", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "mai26", date: "05/04", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "mai26", date: "07/04", desc: "Shopee CasaCasaDecor", value: 23.99, cat: "compras_online" },
-  { cycle: "mai26", date: "11/04", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "mai26", date: "12/04", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "mai26", date: "13/04", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "mai26", date: "15/04", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "mai26", date: "17/04", desc: "MAPFRE Seguro", value: 236.63, cat: "essencial" },
-  { cycle: "mai26", date: "20/04", desc: "HBO Max", value: 18.90, cat: "cortavel" },
-  { cycle: "mai26", date: "21/04", desc: "MercadoLivre avulsa", value: 46.08, cat: "compras_online" },
-
-  // === JUN/26 (fatura venc 01/06) ===
-  { cycle: "jun26", date: "03/03", desc: "Zara Brasil", value: 66.50, cat: "compromisso", parcela: "03/03" },
-  { cycle: "jun26", date: "03/05", desc: "Ana Julia Rodrigues (a confirmar)", value: 290.00, cat: "outros" },
-  { cycle: "jun26", date: "08/05", desc: "Lojas Renner", value: 99.90, cat: "vestuario" },
-  { cycle: "jun26", date: "08/05", desc: "Bourstep Roupas", value: 89.00, cat: "vestuario" },
-  { cycle: "jun26", date: "21/05", desc: "SCP Essencial Mai", value: 11.44, cat: "essencial" },
-  { cycle: "jun26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "07/12" },
-  { cycle: "jun26", date: "26/02", desc: "MercadoLivre parcela", value: 35.17, cat: "compromisso", parcela: "03/03" },
-  { cycle: "jun26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "02/03" },
-  { cycle: "jun26", date: "07/05", desc: "MercadoLivre parcela", value: 36.72, cat: "compromisso", parcela: "01/04" },
-  { cycle: "jun26", date: "23/04", desc: "Unidade Skyfit SA", value: 139.90, cat: "essencial" },
-  { cycle: "jun26", date: "24/04", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "jun26", date: "24/04", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "jun26", date: "27/04", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "jun26", date: "01/05", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "jun26", date: "04/05", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "jun26", date: "05/05", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "jun26", date: "11/05", desc: "Uber", value: 13.33, cat: "uber" },
-  { cycle: "jun26", date: "11/05", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "jun26", date: "12/05", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "jun26", date: "13/05", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "jun26", date: "15/05", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "jun26", date: "17/05", desc: "MAPFRE Seguro", value: 236.61, cat: "essencial" },
-  { cycle: "jun26", date: "20/05", desc: "HBO Max", value: 18.90, cat: "cortavel" },
-
-  // === JUL/26 (fatura venc 01/07) - viagem 03-07/06 cota 1/4 ===
-  { cycle: "jul26", date: "03/06", desc: "Paygo (viagem 1/4)", value: 12.50, cat: "viagem" },
-  { cycle: "jul26", date: "03/06", desc: "Padaria Pão Me Quer (viagem 1/4)", value: 24.25, cat: "viagem" },
-  { cycle: "jul26", date: "04/06", desc: "Decio Beira Rio (viagem 1/4)", value: 29.83, cat: "viagem" },
-  { cycle: "jul26", date: "04/06", desc: "Posto Presidente (viagem 1/4)", value: 30.26, cat: "viagem" },
-  { cycle: "jul26", date: "05/06", desc: "Veredas (viagem 1/4)", value: 22.11, cat: "viagem" },
-  { cycle: "jul26", date: "05/06", desc: "Lucas de Abreu (viagem 1/4)", value: 20.08, cat: "viagem" },
-  { cycle: "jul26", date: "06/06", desc: "Beco da Lua (viagem 1/4)", value: 33.25, cat: "viagem" },
-  { cycle: "jul26", date: "06/06", desc: "Confraria do Boxexa (viagem 1/4)", value: 3.75, cat: "viagem" },
-  { cycle: "jul26", date: "06/06", desc: "Zig Cachoeira do Abade (viagem 1/4)", value: 3.06, cat: "viagem" },
-  { cycle: "jul26", date: "07/06", desc: "Posto Ipê (viagem 1/4)", value: 36.04, cat: "viagem" },
-  { cycle: "jul26", date: "07/06", desc: "Decio Centralina (viagem 1/4)", value: 26.00, cat: "viagem" },
-  { cycle: "jul26", date: "07/06", desc: "MP Souza66Café (viagem 1/4)", value: 11.50, cat: "viagem" },
-  { cycle: "jul26", date: "08/06", desc: "Estoril Jose Munia", value: 86.00, cat: "delivery_restaurante" },
-  { cycle: "jul26", date: "22/06", desc: "SCP Essencial Jun", value: 11.44, cat: "essencial" },
-  { cycle: "jul26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "08/12" },
-  { cycle: "jul26", date: "01/04", desc: "MercadoLivre parcela", value: 43.48, cat: "compromisso", parcela: "03/03" },
-  { cycle: "jul26", date: "07/05", desc: "MercadoLivre parcela", value: 36.72, cat: "compromisso", parcela: "02/04" },
-  { cycle: "jul26", date: "28/05", desc: "Amazon Retail BR", value: 35.89, cat: "compromisso", parcela: "01/02" },
-  { cycle: "jul26", date: "03/06", desc: "PIX Auto Posto VIP", value: 115.12, cat: "combustivel" },
-  { cycle: "jul26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 75.02, cat: "compromisso", parcela: "01/06" },
-  { cycle: "jul26", date: "24/05", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "jul26", date: "24/05", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "jul26", date: "27/05", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "jul26", date: "01/06", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "jul26", date: "04/06", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "jul26", date: "05/06", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "jul26", date: "11/06", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "jul26", date: "12/06", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "jul26", date: "13/06", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "jul26", date: "15/06", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "jul26", date: "19/06", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
-  { cycle: "jul26", date: "21/06", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-
-  // === AGO/26 (fatura venc 01/08) ===
-  { cycle: "ago26", date: "26/06", desc: "iFood OWCAF", value: 61.19, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "21/07", desc: "SCP Essencial Jul", value: 11.44, cat: "essencial" },
-  { cycle: "ago26", date: "21/07", desc: "Pit Stop Espetaria", value: 70.00, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "22/07", desc: "Avenida Park Restaura", value: 8.00, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "23/07", desc: "Espetaria Ferreira Silva", value: 45.00, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "25/07", desc: "Hoje Pode Doceria", value: 56.00, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "27/06", desc: "MP Loja81", value: 70.00, cat: "compromisso", parcela: "01/02" },
-  { cycle: "ago26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "09/12" },
-  { cycle: "ago26", date: "07/05", desc: "MercadoLivre parcela", value: 36.70, cat: "compromisso", parcela: "03/04" },
-  { cycle: "ago26", date: "28/05", desc: "Amazon Retail BR", value: 35.89, cat: "compromisso", parcela: "02/02" },
-  { cycle: "ago26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 75.02, cat: "compromisso", parcela: "02/06" },
-  { cycle: "ago26", date: "23/06", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "ago26", date: "24/06", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "ago26", date: "27/06", desc: "PG VM Parras", value: 76.06, cat: "compras_online" },
-  { cycle: "ago26", date: "28/06", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "ago26", date: "01/07", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "ago26", date: "04/07", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "05/07", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "ago26", date: "11/07", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "ago26", date: "12/07", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "ago26", date: "13/07", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "ago26", date: "15/07", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "ago26", date: "17/07", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
-  { cycle: "ago26", date: "18/07", desc: "MercadoLivre avulsa", value: 45.50, cat: "compras_online" },
-  { cycle: "ago26", date: "18/07", desc: "Uber", value: 17.04, cat: "uber" },
-  { cycle: "ago26", date: "18/07", desc: "Japa Food Rio Preto", value: 104.04, cat: "delivery_restaurante" },
-  { cycle: "ago26", date: "21/07", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-  { cycle: "ago26", date: "24/07", desc: "Uber", value: 10.64, cat: "uber" },
-  { cycle: "ago26", date: "25/07", desc: "Uber", value: 11.62, cat: "uber" },
-  { cycle: "ago26", date: "25/07", desc: "Uber", value: 7.91, cat: "uber" },
-
-  // === SET/26 (fatura venc 01/09) ===
-  { cycle: "set26", date: "27/06", desc: "MP Loja81", value: 70.00, cat: "compromisso", parcela: "02/02" },
-  { cycle: "set26", date: "29/07", desc: "Lojas Renner FL 403 (presente vó, cota 1/2)", value: 29.95, cat: "vestuario" },
-  { cycle: "set26", date: "29/07", desc: "Casa Religiosa", value: 18.00, cat: "outros" },
-  { cycle: "set26", date: "14/08", desc: "Fabiana de Oliveira (lanchonete)", value: 75.80, cat: "delivery_restaurante" },
-  { cycle: "set26", date: "21/08", desc: "SCP Essencial Ago", value: 11.44, cat: "essencial" },
-  { cycle: "set26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "10/12" },
-  { cycle: "set26", date: "07/05", desc: "MercadoLivre parcela", value: 36.70, cat: "compromisso", parcela: "04/04" },
-  { cycle: "set26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "03/06" },
-  { cycle: "set26", date: "28/07", desc: "CentralSambaP", value: 48.79, cat: "compromisso", parcela: "01/03" },
-  { cycle: "set26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.35, cat: "viagem", parcela: "01/06" },
-  { cycle: "set26", date: "26/07", desc: "MercadoLivre DeMamadeiras", value: 73.90, cat: "outros" },
-  { cycle: "set26", date: "28/07", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "set26", date: "29/07", desc: "Ingresso.com", value: 61.20, cat: "outros" },
-  { cycle: "set26", date: "30/07", desc: "Anthropic Claude Sub", value: 118.07, cat: "cortavel" },
-  { cycle: "set26", date: "30/07", desc: "IOF despesa exterior", value: 4.13, cat: "outros" },
-  { cycle: "set26", date: "01/08", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "set26", date: "04/08", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "set26", date: "05/08", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "set26", date: "11/08", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "set26", date: "12/08", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "set26", date: "13/08", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "set26", date: "15/08", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "set26", date: "17/08", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
-  { cycle: "set26", date: "18/08", desc: "API Payment CFE63", value: 10.00, cat: "outros" },
-  { cycle: "set26", date: "21/08", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-  { cycle: "set26", date: "22/08", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "set26", date: "30/07", desc: "Crédito estorno MercadoLivre", value: -45.50, cat: "outros" },
-
-  // === OUT/26 (fatura venc 01/10) ===
-  { cycle: "out26", date: "25/08", desc: "MoreSemiJoias (presente 1 ano namoro)", value: 56.34, cat: "presente", parcela: "01/03" },
-  { cycle: "out26", date: "29/08", desc: "Lojas Livia (produtos cabelo)", value: 42.93, cat: "cuidados_pessoais", parcela: "01/02" },
-  { cycle: "out26", date: "22/09", desc: "00063 SH Rio Preto (presente aniversário namorada)", value: 69.95, cat: "presente", parcela: "01/02" },
-  { cycle: "out26", date: "21/09", desc: "SCP Essencial Set/26", value: 11.44, cat: "essencial" },
-  { cycle: "out26", date: "10/11", desc: "ZP Felipe MA55421", value: 99.53, cat: "compromisso", parcela: "11/12" },
-  { cycle: "out26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "04/06" },
-  { cycle: "out26", date: "28/07", desc: "CentralSambaP", value: 48.79, cat: "compromisso", parcela: "02/03" },
-  { cycle: "out26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.35, cat: "viagem", parcela: "02/06" },
-  { cycle: "out26", date: "05/09", desc: "MercadoLivre (bota de trilha)", value: 38.42, cat: "compras_online", parcela: "01/04" },
-  { cycle: "out26", date: "24/08", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "out26", date: "27/08", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "out26", date: "30/08", desc: "Anthropic Claude Sub", value: 116.75, cat: "cortavel" },
-  { cycle: "out26", date: "30/08", desc: "IOF despesa exterior", value: 4.09, cat: "outros" },
-  { cycle: "out26", date: "01/09", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "out26", date: "04/09", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "out26", date: "05/09", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "out26", date: "11/09", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "out26", date: "12/09", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "out26", date: "13/09", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "out26", date: "15/09", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "out26", date: "17/09", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
-  { cycle: "out26", date: "18/09", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
-  { cycle: "out26", date: "21/09", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "out26", date: "21/09", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-  { cycle: "out26", date: "10/08", desc: "Crédito estorno Ticketmaster", value: -0.02, cat: "outros" },
-
-  // === NOV/26 (fatura venc 01/11) ===
-  { cycle: "nov26", date: "25/08", desc: "MoreSemiJoias (presente 1 ano namoro)", value: 56.33, cat: "presente", parcela: "02/03" },
-  { cycle: "nov26", date: "29/08", desc: "Lojas Livia (produtos cabelo)", value: 42.92, cat: "cuidados_pessoais", parcela: "02/02" },
-  { cycle: "nov26", date: "22/09", desc: "SH Rio Preto (presente aniversário namorada)", value: 69.95, cat: "presente", parcela: "02/02" },
-  { cycle: "nov26", date: "03/10", desc: "AmericanFlex - colchão (100% reembolsado pela mãe, valor bruto R$345,80)", value: 0, cat: "outros", parcela: "01/05" },
-  { cycle: "nov26", date: "10/10", desc: "Lojas G (itens banheiro - mudança de casa)", value: 37.49, cat: "essencial", parcela: "01/02" },
-  { cycle: "nov26", date: "23/10", desc: "MulttecEletroelet - portão (100% coberto pela avó, valor bruto R$265,00)", value: 0, cat: "outros", parcela: "01/02" },
-  { cycle: "nov26", date: "25/09", desc: "Restaurante (almoço aniversário namorada)", value: 194.54, cat: "presente" },
-  { cycle: "nov26", date: "26/09", desc: "RodoSnack Buenos Aires (viagem, cota 1/2)", value: 33.75, cat: "viagem" },
-  { cycle: "nov26", date: "26/09", desc: "Restaurante Rota das C (viagem, cota 1/2)", value: 47.31, cat: "viagem" },
-  { cycle: "nov26", date: "26/09", desc: "Restaurante e Lanchone (viagem, cota 1/2)", value: 6.50, cat: "viagem" },
-  { cycle: "nov26", date: "26/09", desc: "RodoSnack PetroPen (viagem, cota 1/2)", value: 17.20, cat: "viagem" },
-  { cycle: "nov26", date: "21/10", desc: "SCP Essencial Out/26", value: 11.44, cat: "essencial" },
-  { cycle: "nov26", date: "05/09", desc: "Crédito MercadoLivre", value: -0.03, cat: "outros" },
-  { cycle: "nov26", date: "10/11", desc: "ZP Felipe MA55421 (ÚLTIMA PARCELA)", value: 99.53, cat: "compromisso", parcela: "12/12" },
-  { cycle: "nov26", date: "20/06", desc: "AmazonMktplc Eletropar", value: 74.98, cat: "compromisso", parcela: "05/06" },
-  { cycle: "nov26", date: "28/07", desc: "CentralSambaP (ÚLTIMA PARCELA)", value: 48.79, cat: "compromisso", parcela: "03/03" },
-  { cycle: "nov26", date: "10/08", desc: "TicketmasterBrasilLtda", value: 83.33, cat: "viagem", parcela: "03/06" },
-  { cycle: "nov26", date: "05/09", desc: "MercadoLivre (bota de trilha)", value: 38.42, cat: "compras_online", parcela: "02/04" },
-  { cycle: "nov26", date: "24/09", desc: "Amazon Kindle Unltd", value: 24.90, cat: "cortavel" },
-  { cycle: "nov26", date: "27/09", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "nov26", date: "30/09", desc: "Anthropic Claude Sub", value: 119.03, cat: "cortavel" },
-  { cycle: "nov26", date: "30/09", desc: "IOF despesa exterior", value: 4.17, cat: "outros" },
-  { cycle: "nov26", date: "01/10", desc: "Espaço Laser", value: 114.99, cat: "compromisso" },
-  { cycle: "nov26", date: "04/10", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "nov26", date: "05/10", desc: "TIM POS", value: 66.99, cat: "essencial" },
-  { cycle: "nov26", date: "09/10", desc: "Japa Food Rio Preto", value: 48.32, cat: "delivery_restaurante" },
-  { cycle: "nov26", date: "11/10", desc: "Google One", value: 9.99, cat: "cortavel" },
-  { cycle: "nov26", date: "12/10", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "nov26", date: "13/10", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "nov26", date: "15/10", desc: "TotalPass", value: 89.90, cat: "essencial" },
-  { cycle: "nov26", date: "17/10", desc: "MAPFRE Seguro", value: 209.89, cat: "essencial" },
-  { cycle: "nov26", date: "18/10", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
-  { cycle: "nov26", date: "21/10", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "nov26", date: "21/10", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-  { cycle: "nov26", date: "23/10", desc: "Uber", value: 7.54, cat: "uber" },
-  { cycle: "nov26", date: "24/10", desc: "Amazon Kindle+ (não identificado - verificar duplicidade)", value: 24.90, cat: "cortavel" },
-  // === DEZ/26 (fatura venc 01/12, fechada R$2.269,69; líquida R$1.833,44) ===
-  { cycle: "dez26", date: "parcela", desc: "MoreSemiJoias 3/3 (presente 1 ano namorada)", value: 56.33, cat: "presente" },
-  { cycle: "dez26", date: "parcela", desc: "AmericanFlex 2/5 (R$345,80 — mãe reembolsa)", value: 0.00, cat: "compromisso" },
-  { cycle: "dez26", date: "parcela", desc: "Lojas G 2/2 (casa/banheiro)", value: 37.49, cat: "essencial" },
-  { cycle: "dez26", date: "05/11", desc: "Multtec 2/2 (R$265 quitada antecipada; avó cobriu)", value: 0.00, cat: "compromisso" },
-  { cycle: "dez26", date: "01/11", desc: "Controlepdv (bebidas show — sai do cofrinho)", value: 280.00, cat: "viagem" },
-  { cycle: "dez26", date: "04/11", desc: "Mrm empreendimentos (hotel show)", value: 254.59, cat: "viagem" },
-  { cycle: "dez26", date: "21/11", desc: "BR1*ACOUGUE REZENDE (R$110,30 — carnes p/ churrasco; namorada reembolsa)", value: 0, cat: "outros" },
-  { cycle: "dez26", date: "11/11", desc: "SCP Essencial (a confirmar)", value: 11.44, cat: "outros" },
-  { cycle: "dez26", date: "parcela", desc: "Eletropar 6/6", value: 74.98, cat: "compromisso" },
-  { cycle: "dez26", date: "parcela", desc: "Ticketmaster 4/6", value: 83.33, cat: "compromisso" },
-  { cycle: "dez26", date: "parcela", desc: "ML bota 3/4", value: 38.39, cat: "vestuario" },
-  { cycle: "dez26", date: "parcela", desc: "ML ayumi 1/2 (R$83,76 — irmão paga metade)", value: 41.88, cat: "compras_online" },
-  { cycle: "dez26", date: "parcela", desc: "Thaisio 1/3 (capa religiosa)", value: 106.19, cat: "compromisso" },
-  { cycle: "dez26", date: "—", desc: "Uber", value: 9.95, cat: "uber" },
-  { cycle: "dez26", date: "—", desc: "Uber", value: 13.95, cat: "uber" },
-  { cycle: "dez26", date: "—", desc: "Uber", value: 15.07, cat: "uber" },
-  { cycle: "dez26", date: "28/10", desc: "Amazon Prime", value: 19.90, cat: "cortavel" },
-  { cycle: "dez26", date: "20/11", desc: "Amazon Prime (2ª cobrança — verificar)", value: 19.90, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "Claude Sub", value: 117.65, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "IOF Claude", value: 4.12, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "Espaço Laser P10", value: 114.99, cat: "compromisso" },
-  { cycle: "dez26", date: "—", desc: "iFood", value: 7.95, cat: "delivery_restaurante" },
-  { cycle: "dez26", date: "—", desc: "TIM", value: 66.99, cat: "essencial" },
-  { cycle: "dez26", date: "—", desc: "Google", value: 9.99, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "Spotify", value: 23.90, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "Apple iCloud", value: 5.90, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "MAPFRE Seguro 6/12", value: 209.89, cat: "essencial" },
-  { cycle: "dez26", date: "—", desc: "HTM Comunidade (cota 1/2, namorada reembolsa metade)", value: 48.57, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "MP Melimais", value: 19.90, cat: "cortavel" },
-  { cycle: "dez26", date: "—", desc: "HBO Max", value: 29.90, cat: "cortavel" },
-];
+const initialExpenses = []; // dados reais agora vivem no Supabase (tabela expenses); ver fetch no Dashboard()
 
 const GOALS = [
   { id: "reserva", name: "Reserva de emergência", target: 6600, saved: 6600, deadline: "Concluída", priority: "Alta" },
@@ -497,6 +218,8 @@ function Pill({ label, active, onClick, color }) {
 
 function Dashboard() {
   const [expenses, setExpenses] = useState(initialExpenses);
+  const [loadError, setLoadError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const [filterCycle, setFilterCycle] = useState("all");
   const [filterCat, setFilterCat] = useState("all");
   const [tab, setTab] = useState("overview");
@@ -505,6 +228,35 @@ function Dashboard() {
   const [selectedCat, setSelectedCat] = useState(null);
   const [showForm, setShowForm] = useState(false);
   const [form, setForm] = useState({ cycle: "dez26", date: "", desc: "", value: "", cat: "outros" });
+
+  const loadExpenses = async () => {
+    try {
+      const res = await fetch(
+        `${SUPABASE_URL}/rest/v1/expenses?select=id,cycle,date_label,description,value,category,installment,status,source,created_at&order=created_at.asc`,
+        { headers: SUPABASE_HEADERS }
+      );
+      if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
+      const rows = await res.json();
+      setExpenses(rows.map(r => ({
+        id: r.id,
+        cycle: r.cycle,
+        date: r.date_label,
+        desc: r.description,
+        value: Number(r.value),
+        cat: r.category,
+        parcela: r.installment || undefined,
+        status: r.status,
+        source: r.source,
+      })));
+      setLoadError(null);
+    } catch (err) {
+      setLoadError("Não foi possível carregar os dados do Supabase — mostrando apenas o que já estava na tela. " + err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { loadExpenses(); }, []);
 
   const filtered = useMemo(() => {
     return expenses.filter(e => {
@@ -576,11 +328,33 @@ function Dashboard() {
     return deliveryByCycle[overviewCycle] || 0;
   }, [overviewCycle, deliveryByCycle]);
 
-  const handleAddExpense = () => {
+  const [savingExpense, setSavingExpense] = useState(false);
+  const handleAddExpense = async () => {
     if (!form.date || !form.desc || !form.value) return;
-    setExpenses([...expenses, { cycle: form.cycle, date: form.date, desc: form.desc, value: parseFloat(form.value), cat: form.cat }]);
-    setForm({ ...form, date: "", desc: "", value: "" });
-    setShowForm(false);
+    setSavingExpense(true);
+    const payload = {
+      cycle: form.cycle,
+      date_label: form.date,
+      description: form.desc,
+      value: parseFloat(form.value),
+      category: form.cat,
+      source: "manual",
+    };
+    try {
+      const res = await fetch(`${SUPABASE_URL}/rest/v1/expenses`, {
+        method: "POST",
+        headers: { ...SUPABASE_HEADERS, Prefer: "return=representation" },
+        body: JSON.stringify(payload),
+      });
+      if (!res.ok) throw new Error(`Supabase respondeu ${res.status}`);
+      await loadExpenses(); // recarrega do banco para manter o artifact e o Supabase sempre em sincronia
+      setForm({ ...form, date: "", desc: "", value: "" });
+      setShowForm(false);
+    } catch (err) {
+      alert("Não consegui salvar no Supabase: " + err.message + "\nTente novamente em alguns segundos.");
+    } finally {
+      setSavingExpense(false);
+    }
   };
 
   const deliveryMeta = 100;
@@ -601,6 +375,15 @@ function Dashboard() {
           Novo gasto
         </button>
       </div>
+
+      {loadError && (
+        <div style={{ background: "var(--bg-warning)", color: "var(--text-warning)", borderRadius: 8, padding: "8px 12px", fontSize: 12, marginBottom: 12 }}>
+          ⚠️ {loadError}
+        </div>
+      )}
+      {loading && (
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 12 }}>Carregando dados do Supabase…</p>
+      )}
 
       {showForm && (
         <div style={{ background: "var(--surface-2)", border: "0.5px solid var(--border)", borderRadius: 12, padding: 16, marginBottom: 16 }}>
@@ -632,7 +415,7 @@ function Dashboard() {
             </div>
           </div>
           <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
-            <button onClick={handleAddExpense} style={{ padding: "6px 16px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 500, border: "0.5px solid var(--border-accent)", background: "var(--bg-accent)", color: "var(--text-accent)", cursor: "pointer" }}>Salvar</button>
+            <button disabled={savingExpense} onClick={handleAddExpense} style={{ padding: "6px 16px", borderRadius: "var(--radius)", fontSize: 13, fontWeight: 500, border: "0.5px solid var(--border-accent)", background: "var(--bg-accent)", color: "var(--text-accent)", cursor: savingExpense ? "default" : "pointer", opacity: savingExpense ? 0.6 : 1 }}>{savingExpense ? "Salvando…" : "Salvar"}</button>
             <button onClick={() => setShowForm(false)} style={{ padding: "6px 16px", borderRadius: "var(--radius)", fontSize: 13, border: "0.5px solid var(--border)", background: "transparent", color: "var(--text-secondary)", cursor: "pointer" }}>Cancelar</button>
           </div>
         </div>
@@ -773,7 +556,11 @@ function Dashboard() {
               return (
                 <div key={i} style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0", borderBottom: "0.5px solid var(--border)", fontSize: 13 }}>
                   <span style={{ width: 6, height: 6, borderRadius: 2, background: c?.color || "#888", flexShrink: 0 }} />
-                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{e.desc}</span>
+                  <span style={{ flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {e.source === "whatsapp" && <span title="Lançado via WhatsApp" style={{ marginRight: 4 }}>💬</span>}
+                    {e.desc}
+                  </span>
+                  {e.status === "pending_review" && <span title="Categorização incerta — confirme no grupo do WhatsApp" style={{ fontSize: 10, color: "var(--text-warning)", background: "var(--bg-warning)", padding: "1px 6px", borderRadius: 8 }}>revisar</span>}
                   {e.parcela && <span style={{ fontSize: 10, color: "var(--text-muted)", background: "var(--surface-1)", padding: "1px 6px", borderRadius: 8 }}>{e.parcela}</span>}
                   <span style={{ fontSize: 11, color: "var(--text-muted)", flexShrink: 0, width: 40, textAlign: "center" }}>
                     {CYCLES.find(c => c.id === e.cycle)?.label}
