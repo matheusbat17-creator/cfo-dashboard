@@ -46,6 +46,38 @@ function cycleDates(c) {
   const yStart = a[1] > b[1] ? yEnd - 1 : yEnd;
   return { start: Date.UTC(yStart, a[1] - 1, a[0]), end: Date.UTC(yEnd, b[1] - 1, b[0]) };
 }
+/* Débito: o ciclo começa no penúltimo dia útil do mês anterior (dia do salário)
+   e termina na véspera do penúltimo dia útil do mês de vigência. */
+function easterMs(y) {
+  const a = y % 19, b = Math.floor(y / 100), c = y % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const month = Math.floor((h + l - 7 * m + 114) / 31), day = ((h + l - 7 * m + 114) % 31) + 1;
+  return Date.UTC(y, month - 1, day);
+}
+const holCache = {};
+function holidaysOf(y) {
+  if (holCache[y]) return holCache[y];
+  const set = new Set([[1, 1], [4, 21], [5, 1], [9, 7], [10, 12], [11, 2], [11, 15], [11, 20], [12, 25]].map(([m, d]) => Date.UTC(y, m - 1, d)));
+  const e = easterMs(y);
+  [-48, -47, -2, 60].forEach((n) => set.add(e + n * DAY));
+  return (holCache[y] = set);
+}
+function isBiz(t) { const dow = new Date(t).getUTCDay(); return dow !== 0 && dow !== 6 && !holidaysOf(new Date(t).getUTCFullYear()).has(t); }
+function penultBizDay(y, m) {
+  let t = Date.UTC(y, m, 0), n = 0;
+  for (;;) { if (isBiz(t)) { n++; if (n === 2) return new Date(t).getUTCDate(); } t -= DAY; }
+}
+function debitCycleIdFor({ d, m, y }) {
+  const idx = (d >= penultBizDay(y, m) ? m : m - 1);
+  return `${MONTHS[idx % 12]}${String((y + Math.floor(idx / 12)) % 100).padStart(2, "0")}`;
+}
+function debitDates(c) {
+  const due = new Date(c.due_date + "T00:00:00Z");
+  const y = due.getUTCFullYear(), m = due.getUTCMonth() + 1;
+  const py = m === 1 ? y - 1 : y, pm = m === 1 ? 12 : m - 1;
+  return { start: Date.UTC(py, pm - 1, penultBizDay(py, pm)), end: Date.UTC(y, m - 1, penultBizDay(y, m)) - DAY };
+}
+const fmtDM = (ms) => { const d = new Date(ms); return `${String(d.getUTCDate()).padStart(2, "0")}/${String(d.getUTCMonth() + 1).padStart(2, "0")}`; };
 const sumNet = (list) => list.reduce((t, x) => t + x[1] - x[2], 0);
 const sumGross = (list) => list.reduce((t, x) => t + x[1], 0);
 
@@ -157,7 +189,7 @@ function AddSheet({ cycles, defaultMethod, onClose, onSaved }) {
   const [err, setErr] = useState("");
 
   const parts = useMemo(() => { const [y, m, d] = date.split("-").map(Number); return { y, m, d }; }, [date]);
-  const cid = cycleIdFor(parts);
+  const cid = method === "debito" ? debitCycleIdFor(parts) : cycleIdFor(parts);
   const cyc = cycles.find((c) => c.id === cid);
 
   const save = async (e) => {
@@ -193,7 +225,7 @@ function AddSheet({ cycles, defaultMethod, onClose, onSaved }) {
         <label className="field"><span>Descrição</span><input value={desc} maxLength={120} onChange={(e) => setDesc(e.target.value)} placeholder="Ex.: iFood almoço" /></label>
         <label className="field"><span>Categoria</span>
           <select value={cat} onChange={(e) => setCat(e.target.value)}>{Object.keys(CATS).map((k) => <option key={k} value={k}>{catName(k)}</option>)}</select></label>
-        <p className="hint" style={{ color: "var(--sage)", fontSize: 13, margin: "0 0 12px" }}>{cyc ? `Entra no ciclo ${cyc.label} (${cyc.period_label}).` : "Sem ciclo cadastrado para esta data."}</p>
+        <p className="hint" style={{ color: "var(--sage)", fontSize: 13, margin: "0 0 12px" }}>{cyc ? (method === "debito" ? `Débito do ciclo ${cyc.label} (${fmtDM(debitDates(cyc).start)} → ${fmtDM(debitDates(cyc).end)}).` : `Entra na fatura ${cyc.label} (${cyc.period_label}).`) : "Sem ciclo cadastrado para esta data."}</p>
         {err && <p className="err" role="alert">{err}</p>}
         <button className="primary" disabled={busy}>{busy ? "Salvando…" : "Salvar lançamento"}</button>
         <button type="button" className="ghost" onClick={onClose}>Cancelar</button>
@@ -307,7 +339,8 @@ function Private({ session }) {
   const metaAporte = meta ?? metaBase;
 
   const nowId = cycleIdFor(todaySP());
-  useEffect(() => { if (cycles.length && !cid) setCid(cycles.find((c) => c.id === nowId) ? nowId : cycles[cycles.length - 1].id); }, [cycles, cid, nowId]);
+  const finId = debitCycleIdFor(todaySP());
+  useEffect(() => { if (cycles.length && !cid) setCid(cycles.find((c) => c.id === finId) ? finId : cycles[cycles.length - 1].id); }, [cycles, cid, finId]);
 
   const by = useMemo(() => {
     const o = {};
@@ -338,6 +371,10 @@ function Private({ session }) {
   const t = todaySP();
   const today = Date.UTC(t.y, t.m - 1, t.d);
   const daysLeft = dates ? (today > dates.end ? 0 : today < dates.start ? Math.round((dates.end - dates.start) / DAY) + 1 : Math.round((dates.end - today) / DAY) + 1) : 0;
+
+  const dd = cur ? debitDates(cur) : null;
+  const daysLeftDeb = dd ? (today > dd.end ? 0 : today < dd.start ? Math.round((dd.end - dd.start) / DAY) + 1 : Math.round((dd.end - today) / DAY) + 1) : 0;
+  const isOpenDeb = !!dd && today <= dd.end;
 
   const del = async (r) => {
     await sb.from("expenses").update({ deleted_at: new Date().toISOString() }).eq("id", r.id);
@@ -399,7 +436,7 @@ function Private({ session }) {
                 return (
                   <>
                     <div className="gauge"><i style={{ width: `${Math.min(100, Math.max(0, sum.aporte / max) * 100)}%` }} /><b style={{ left: `${(metaAporte / max) * 100}%` }} /></div>
-                    <div className="gauge-cap"><span>Meta <em><M v={metaAporte} /></em></span>{sum.sobraDeb > 0 && isOpen ? <span>+ <M v={sum.sobraDeb} /> se sobrar no débito</span> : <span />}</div>
+                    <div className="gauge-cap"><span>Meta <em><M v={metaAporte} /></em></span>{sum.sobraDeb > 0 && isOpenDeb ? <span>+ <M v={sum.sobraDeb} /> se sobrar no débito</span> : <span />}</div>
                   </>
                 );
               })()}
@@ -480,7 +517,7 @@ function Private({ session }) {
         {tab === "debit" && cur && sum && (
           <>
             <section className="hero">
-              <p className="hero-label">Débito em {cur.label}</p>
+              <p className="hero-label">Débito em {cur.label}, de {fmtDM(dd.start)} a {fmtDM(dd.end)}</p>
               <div className="ring-wrap" style={{ marginTop: 14 }}>
                 {(() => {
                   const r = 54, c = 2 * Math.PI * r, p = Math.min(1, sum.deb / budget);
@@ -494,7 +531,7 @@ function Private({ session }) {
                 <div className="ring-facts">
                   <p>Gasto<b><M v={sum.deb} /></b></p>
                   <p>{sum.deb > budget ? "Acima do orçamento" : "Ainda disponível"}<b><M v={sum.deb > budget ? sum.deb - budget : sum.sobraDeb} /></b></p>
-                  {isOpen && sum.sobraDeb > 0 && daysLeft > 0 && <p>Por dia, até o fim do ciclo<b><M v={sum.sobraDeb / daysLeft} /></b></p>}
+                  {isOpenDeb && sum.sobraDeb > 0 && daysLeftDeb > 0 && <p>Por dia, até {fmtDM(dd.end)}<b><M v={sum.sobraDeb / daysLeftDeb} /></b></p>}
                 </div>
               </div>
             </section>
